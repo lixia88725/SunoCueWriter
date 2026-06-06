@@ -2,13 +2,15 @@
 
 Suno Cue Writer is a CEP panel that turns Premiere Pro timeline markers inside the active sequence In/Out range into Suno Advanced / Custom Mode prompt fields.
 
+![Suno Cue Writer panel](docs/screenshot.png)
+
 ## What It Does
 
 - Reads active sequence timeline markers.
 - Uses marker time, name, and comments as a film music cue brief.
 - Optionally asks 2-4 AI context questions before generation.
 - Calls DeepSeek `deepseek-v4-pro` with your own API key.
-- Produces editable English `Title`, `Prompt`, `Style`, `Lyrics / Structure`, and `Exclude` fields.
+- Produces editable English `Lyrics`, `Styles`, `Exclude Styles`, `Song Title (Optional)`, and `AI Notes` fields.
 - Builds an external LLM prompt that packages the same Premiere cue context for GPT, Gemini, or another model.
 
 ## Install for Local Testing
