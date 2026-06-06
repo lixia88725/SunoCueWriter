@@ -1,0 +1,146 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
+    <title>Suno Cue Writer</title>
+    <link rel="stylesheet" href="./css/styles.css?v=20260607-light-type">
+  </head>
+  <body>
+    <main class="panel">
+      <header class="header">
+        <div>
+          <h1>Suno Cue Writer</h1>
+          <p>Premiere markers to Suno fields</p>
+        </div>
+      </header>
+
+      <section class="section cue-status">
+        <div class="timeline-strip">
+          <button id="refreshButton" class="secondary refresh-button">Refresh</button>
+          <div class="timeline-readout">
+            <div id="timelineSummary" class="timeline-summary-line">No timeline loaded.</div>
+            <div id="timelineStatus" class="timeline-status">Timeline not loaded yet.</div>
+            <details id="timelineDiagnostics" class="timeline-diagnostics hidden">
+              <summary>Details</summary>
+              <div id="timelineDiagnosticsText"></div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="section collapsible-section">
+        <div class="section-title collapse-title">
+          <button id="toggleMarkerPreviewButton" class="collapse-toggle" aria-label="Toggle marker preview" aria-expanded="false" aria-controls="markerPreviewBody"></button>
+          <h2>Marker Preview · <span id="markerPreviewCount">0</span></h2>
+        </div>
+        <div id="markerPreviewBody" class="collapsed-body hidden">
+          <div id="markerPreview" class="marker-preview">No markers loaded.</div>
+        </div>
+      </section>
+
+      <section class="section collapsible-section">
+        <div class="section-title collapse-title">
+          <button id="toggleManualBriefButton" class="collapse-toggle" aria-label="Toggle brief" aria-expanded="false" aria-controls="manualBriefBody"></button>
+          <h2>Brief</h2>
+        </div>
+        <div id="manualBriefBody" class="collapsed-body hidden">
+          <textarea id="manualBrief" rows="3" placeholder="Optional fallback or extra context when marker comments are sparse."></textarea>
+        </div>
+      </section>
+
+      <section class="section collapsible-section ai-config">
+        <div class="section-title collapse-title">
+          <button id="toggleAiConfigButton" class="collapse-toggle" aria-label="Toggle AI config" aria-expanded="false" aria-controls="aiConfigBody"></button>
+          <h2>AI Config</h2>
+        </div>
+        <div id="aiConfigBody" class="ai-config-body hidden">
+          <div id="apiSettingsBody" class="collapsed-body">
+            <h3>API</h3>
+            <label class="label" for="apiKey">DeepSeek API Key</label>
+            <div class="key-row">
+              <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off">
+              <button id="saveKeyButton" class="icon-button" title="Save key preference" aria-label="Save key preference">Save</button>
+            </div>
+            <label class="check-row">
+              <input id="rememberKey" type="checkbox">
+              <span>Remember on this machine</span>
+            </label>
+            <div class="model-line">
+              <span>Model</span>
+              <strong id="modelName">deepseek-v4-pro</strong>
+            </div>
+          </div>
+
+          <div id="promptTemplateEditor" class="collapsed-body">
+            <h3>Engineer Prompt</h3>
+            <p class="helper-text">Guides DeepSeek and the external LLM prompt.</p>
+            <textarea id="generationPromptTemplate" rows="7"></textarea>
+            <div class="mini-actions">
+              <button id="savePromptTemplateButton">Save</button>
+              <button id="resetPromptTemplateButton">Reset</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="actions">
+        <div id="activityIndicator" class="activity hidden" aria-live="polite">
+          <span class="spinner"></span>
+          <span id="activityText">Working</span>
+        </div>
+        <button id="interviewButton" class="secondary">Grill me</button>
+        <button id="copyExternalPromptButton" class="secondary">To LLM</button>
+        <button id="generateButton" class="secondary">Generate</button>
+        <div id="externalPromptFallback" class="external-fallback hidden">
+          <p class="helper-text">External prompt is selected here as a backup. If paste is empty, press Command+C and paste into GPT, Gemini, or another model.</p>
+          <textarea id="externalPromptOutput" rows="8" aria-label="External LLM prompt"></textarea>
+        </div>
+      </section>
+
+      <section id="interviewSection" class="section hidden">
+        <div class="section-title">
+          <h2>AI Context Interview</h2>
+          <button id="clearInterviewButton" class="text-button">Clear</button>
+        </div>
+        <div id="questionList" class="question-list"></div>
+        <button id="generateWithAnswersButton" class="primary">Generate With Answers</button>
+      </section>
+
+      <section class="section output-section">
+        <div class="section-title">
+          <h2>Suno Fields</h2>
+          <span id="statusText" class="status-text"></span>
+        </div>
+
+        <label class="label" for="lyricsOutput">Lyrics</label>
+        <textarea id="lyricsOutput" rows="6"></textarea>
+
+        <label class="label" for="styleOutput">Styles</label>
+        <textarea id="styleOutput" rows="2"></textarea>
+
+        <label class="label" for="excludeOutput">Exclude Styles</label>
+        <textarea id="excludeOutput" rows="2"></textarea>
+
+        <label class="label" for="titleOutput">Song Title (Optional)</label>
+        <input id="titleOutput" type="text">
+      </section>
+
+      <section class="section collapsible-section field-details">
+        <div class="section-title collapse-title">
+          <button id="toggleFieldDetailsButton" class="collapse-toggle" aria-label="Toggle AI notes" aria-expanded="false" aria-controls="fieldDetailsBody"></button>
+          <h2>AI Notes</h2>
+        </div>
+        <div id="fieldDetailsBody" class="collapsed-body hidden">
+          <textarea id="notesOutput" class="notes-output" rows="3" readonly></textarea>
+        </div>
+      </section>
+
+      <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, manual context, and your answers. No video or audio media is uploaded.</p>
+    </main>
+
+    <script src="./js/cep.js?v=20260607-light-type"></script>
+    <script src="./js/core.js?v=20260607-light-type"></script>
+    <script src="./js/main.js?v=20260607-light-type"></script>
+  </body>
+</html>

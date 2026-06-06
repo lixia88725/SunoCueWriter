@@ -1,0 +1,11 @@
+{
+  "name": "premiere-suno-cue-writer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CEP panel for turning Premiere Pro timeline markers into Suno Custom Mode prompts.",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {}
+}
+
