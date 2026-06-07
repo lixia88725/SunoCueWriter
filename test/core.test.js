@@ -116,6 +116,10 @@ test("builds generation messages with markers and optional interview answers", (
   );
 
   assert.match(messages[0].content, /Suno Advanced\/Custom Mode prompt engineer/i);
+  assert.match(messages[0].content, /story action, character psychology, and the emotion the audience should feel/i);
+  assert.match(messages[0].content, /narrative beat, character point of view, audience emotion, and energy change/i);
+  assert.match(messages[0].content, /instrumentation, texture, harmony, rhythm, density, register, dynamics, tempo feel, and transitions/i);
+  assert.match(messages[0].content, /Do not merely repeat plot or feelings/i);
   assert.match(messages[0].content, /by default, assume this is an instrumental cue/i);
   assert.match(messages[0].content, /If the user explicitly asks for vocals, a song, or lyrics/i);
   assert.doesNotMatch(messages[0].content, /copyrighted artist/i);
@@ -241,6 +245,8 @@ test("builds an external LLM prompt with cue context and interview answers", () 
 
   assert.match(prompt, /You are a film music supervisor and Suno Advanced\/Custom Mode prompt engineer/);
   assert.match(prompt, /Use the included Premiere marker data and director notes to generate Suno Advanced\/Custom Mode fields/);
+  assert.match(prompt, /Translate scene action, character psychology, and intended audience emotion into concrete musical instructions/);
+  assert.match(prompt, /Convert narrative and emotional descriptions into musical parameters/);
   assert.match(prompt, /Scene_04_Rooftop/);
   assert.match(prompt, /00:00:42:12 - 00:01:58:03/);
   assert.match(prompt, /压抑到打开/);
