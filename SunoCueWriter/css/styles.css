@@ -276,6 +276,49 @@ button:disabled {
   flex: 1;
 }
 
+.prompt-file-loader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.prompt-file-loader input {
+  min-width: 0;
+}
+
+.compact-button {
+  min-height: 28px;
+  padding: 4px 9px;
+  border-radius: 9px;
+}
+
+.recent-prompt-list {
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.recent-prompt-item {
+  display: grid;
+  gap: 2px;
+  min-height: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: transparent;
+  text-align: left;
+}
+
+.recent-prompt-item:hover {
+  background: var(--panel-2);
+}
+
+.recent-prompt-name {
+  color: #9ca3ad;
+}
+
 .timeline-strip {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -368,11 +411,63 @@ button:disabled {
 }
 
 .output-section {
-  gap: 6px;
+  gap: 10px;
 }
 
 .output-section > .section-title {
   margin-bottom: 8px;
+}
+
+.field-block {
+  display: grid;
+  gap: 6px;
+}
+
+.field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 18px;
+}
+
+.copy-field-button {
+  position: relative;
+  width: 16px;
+  min-width: 16px;
+  min-height: 16px;
+  padding: 0;
+  border-radius: 5px;
+  background: transparent;
+}
+
+.copy-field-button::before,
+.copy-field-button::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid #6f7681;
+  border-radius: 3px;
+  transition: border-color 0.15s ease;
+}
+
+.copy-field-button::before {
+  top: 5px;
+  left: 4px;
+}
+
+.copy-field-button::after {
+  top: 3px;
+  left: 7px;
+  background: var(--panel);
+}
+
+.copy-field-button:hover::before,
+.copy-field-button:hover::after,
+.copy-field-button:focus-visible::before,
+.copy-field-button:focus-visible::after {
+  border-color: var(--muted);
 }
 
 .field-details {

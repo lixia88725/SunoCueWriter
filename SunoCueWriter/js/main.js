@@ -20,6 +20,8 @@
     storageKey: "",
     saveTimer: null,
   };
+  var PROMPT_MARKDOWN_PATH_KEY = "promptMarkdownPath";
+  var RECENT_PROMPT_MARKDOWN_FILES_KEY = "recentPromptMarkdownFiles";
 
   var $ = function (id) {
     return document.getElementById(id);
@@ -190,6 +192,165 @@
     localStorage.removeItem("generationPromptTemplate");
     $("generationPromptTemplate").value = core.defaultGenerationSystemPrompt();
     setStatus("API prompt template reset to default.");
+  }
+
+  function promptMarkdownName(path) {
+    return String(path || "")
+      .split(/[\\/]/)
+      .filter(Boolean)
+      .pop();
+  }
+
+  function isMarkdownPath(path) {
+    return /\.(md|markdown)$/i.test(String(path || "").trim());
+  }
+
+  function getRecentPromptMarkdownFiles() {
+    try {
+      return JSON.parse(localStorage.getItem(RECENT_PROMPT_MARKDOWN_FILES_KEY) || "[]");
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function saveRecentPromptMarkdownFiles(list) {
+    localStorage.setItem(RECENT_PROMPT_MARKDOWN_FILES_KEY, JSON.stringify(list || []));
+  }
+
+  function renderRecentPromptMarkdownFiles() {
+    var list = getRecentPromptMarkdownFiles();
+    var body = $("recentPromptMarkdownList");
+    body.innerHTML = list.length
+      ? list
+          .map(function (item, index) {
+            return (
+              '<button class="recent-prompt-item" type="button" data-recent-prompt-index="' +
+              index +
+              '">' +
+              '<span class="recent-prompt-name">' +
+              escapeHtml(item.name || promptMarkdownName(item.path) || "Prompt") +
+              "</span>" +
+              "</button>"
+            );
+          })
+          .join("")
+      : '<div class="helper-text">No recent Markdown prompts.</div>';
+  }
+
+  function setRecentPromptListOpen(isOpen) {
+    $("recentPromptMarkdownList").classList.toggle("hidden", !isOpen);
+    $("recentPromptMarkdownButton").setAttribute("aria-expanded", isOpen ? "true" : "false");
+    if (isOpen) {
+      renderRecentPromptMarkdownFiles();
+    }
+  }
+
+  function rememberPromptMarkdownFile(path) {
+    var file = {
+      path: path,
+      name: promptMarkdownName(path) || path,
+      lastLoadedAt: Date.now(),
+    };
+    saveRecentPromptMarkdownFiles(core.normalizeRecentPromptFiles(getRecentPromptMarkdownFiles(), file));
+    renderRecentPromptMarkdownFiles();
+  }
+
+  function applyPromptMarkdown(path, markdownText) {
+    if (!isMarkdownPath(path)) {
+      throw new Error("Choose a .md or .markdown prompt file.");
+    }
+    var prompt = core.extractPromptFromMarkdown(markdownText);
+    if (!prompt) {
+      throw new Error("Markdown prompt file did not contain usable prompt text.");
+    }
+    $("generationPromptTemplate").value = prompt;
+    localStorage.setItem("generationPromptTemplate", prompt);
+    localStorage.setItem(PROMPT_MARKDOWN_PATH_KEY, path);
+    $("promptMarkdownPath").value = path;
+    rememberPromptMarkdownFile(path);
+    setRecentPromptListOpen(false);
+    setStatus("Loaded Engineer Prompt from Markdown.");
+  }
+
+  function readPromptMarkdownWithCep(path) {
+    return new Promise(function (resolve, reject) {
+      if (!window.cep || !window.cep.fs || !window.cep.fs.readFile) {
+        reject(new Error("CEP file access is unavailable."));
+        return;
+      }
+      var result = window.cep.fs.readFile(path);
+      if (result && result.err === 0) {
+        resolve(result.data || "");
+        return;
+      }
+      reject(new Error("Could not read Markdown prompt file."));
+    });
+  }
+
+  function loadPromptMarkdownPath(path) {
+    var trimmedPath = String(path || "").trim();
+    if (!trimmedPath) {
+      setStatus("Enter or choose a Markdown prompt path.", true);
+      return;
+    }
+    if (!isMarkdownPath(trimmedPath)) {
+      setStatus("Choose a .md or .markdown prompt file.", true);
+      return;
+    }
+    readPromptMarkdownWithCep(trimmedPath)
+      .then(function (text) {
+        applyPromptMarkdown(trimmedPath, text);
+      })
+      .catch(function (error) {
+        setStatus(error.message, true);
+      });
+  }
+
+  function browsePromptMarkdownWithCep() {
+    if (!window.cep || !window.cep.fs || !window.cep.fs.showOpenDialogEx) {
+      return false;
+    }
+    var result = window.cep.fs.showOpenDialogEx(false, false, "Choose Engineer Prompt Markdown", "", []);
+    if (!result || result.err !== 0 || !result.data || !result.data.length) {
+      return true;
+    }
+    var path = result.data[0];
+    $("promptMarkdownPath").value = path;
+    loadPromptMarkdownPath(path);
+    return true;
+  }
+
+  function browsePromptMarkdownFallback() {
+    $("promptMarkdownFileInput").value = "";
+    $("promptMarkdownFileInput").click();
+  }
+
+  function loadPromptMarkdownFileObject(file) {
+    if (!file) {
+      return;
+    }
+    var path = file.path || file.name || "";
+    if (!isMarkdownPath(path)) {
+      setStatus("Choose a .md or .markdown prompt file.", true);
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        applyPromptMarkdown(path, reader.result || "");
+      } catch (error) {
+        setStatus(error.message, true);
+      }
+    };
+    reader.onerror = function () {
+      setStatus("Could not read Markdown prompt file.", true);
+    };
+    reader.readAsText(file);
+  }
+
+  function loadPromptMarkdownPreference() {
+    $("promptMarkdownPath").value = localStorage.getItem(PROMPT_MARKDOWN_PATH_KEY) || "";
+    renderRecentPromptMarkdownFiles();
   }
 
   function loadManualBriefForCue(cue) {
@@ -784,6 +945,25 @@
     return fallbackCopy();
   }
 
+  function copyOutputField(button) {
+    var targetId = button.getAttribute("data-copy-target");
+    var label = button.getAttribute("data-copy-label") || "Field";
+    var target = $(targetId);
+    var value = target ? target.value : "";
+    if (!value.trim()) {
+      setStatus(label + " is empty.", true);
+      return;
+    }
+
+    copyText(value)
+      .then(function () {
+        setStatus("Copied " + label + ".");
+      })
+      .catch(function (error) {
+        setStatus("Could not copy " + label + ": " + error.message, true);
+      });
+  }
+
   function showExternalPromptForManualCopy() {
     $("externalPromptFallback").classList.remove("hidden");
     $("externalPromptOutput").focus();
@@ -835,6 +1015,34 @@
     $("saveKeyButton").addEventListener("click", saveApiKeyPreference);
     $("savePromptTemplateButton").addEventListener("click", savePromptTemplatePreference);
     $("resetPromptTemplateButton").addEventListener("click", resetPromptTemplatePreference);
+    $("browsePromptMarkdownButton").addEventListener("click", function () {
+      if (!browsePromptMarkdownWithCep()) {
+        browsePromptMarkdownFallback();
+      }
+    });
+    $("recentPromptMarkdownButton").addEventListener("click", function () {
+      setRecentPromptListOpen($("recentPromptMarkdownList").classList.contains("hidden"));
+    });
+    $("recentPromptMarkdownList").addEventListener("click", function (event) {
+      var button = event.target.closest("[data-recent-prompt-index]");
+      if (!button) {
+        return;
+      }
+      var item = getRecentPromptMarkdownFiles()[Number(button.getAttribute("data-recent-prompt-index"))];
+      if (item && item.path) {
+        $("promptMarkdownPath").value = item.path;
+        loadPromptMarkdownPath(item.path);
+      }
+    });
+    $("promptMarkdownPath").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        loadPromptMarkdownPath($("promptMarkdownPath").value);
+      }
+    });
+    $("promptMarkdownFileInput").addEventListener("change", function () {
+      loadPromptMarkdownFileObject($("promptMarkdownFileInput").files && $("promptMarkdownFileInput").files[0]);
+    });
     $("manualBrief").addEventListener("input", scheduleManualBriefSave);
     $("manualBrief").addEventListener("blur", flushManualBriefSave);
     window.addEventListener("beforeunload", flushManualBriefSave);
@@ -851,6 +1059,11 @@
       state.questions = [];
       renderQuestions();
       setStatus("Interview cleared.");
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-copy-target]"), function (button) {
+      button.addEventListener("click", function () {
+        copyOutputField(button);
+      });
     });
     $("copyExternalPromptButton").addEventListener("click", function () {
       startProgress("整理外部 LLM prompt...");
@@ -876,6 +1089,7 @@
     $("modelName").textContent = state.model;
     loadApiKeyPreference();
     loadPromptTemplatePreference();
+    loadPromptMarkdownPreference();
     bindEvents();
 
     refreshCue();

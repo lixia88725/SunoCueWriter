@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260607-interview-optional">
+    <link rel="stylesheet" href="./css/styles.css?v=20260607-recent-muted">
   </head>
   <body>
     <main class="panel">
@@ -41,6 +41,13 @@
           <div id="promptTemplateEditor" class="collapsed-body">
             <h3>Engineer Prompt</h3>
             <p class="helper-text">Guides DeepSeek and the external LLM prompt.</p>
+            <div class="prompt-file-loader">
+              <input id="promptMarkdownPath" type="text" placeholder="Markdown prompt path">
+              <button id="browsePromptMarkdownButton" class="compact-button" type="button">Browse</button>
+              <button id="recentPromptMarkdownButton" class="compact-button" type="button" aria-expanded="false" aria-controls="recentPromptMarkdownList">Recent</button>
+            </div>
+            <input id="promptMarkdownFileInput" class="hidden" type="file" accept=".md,.markdown,text/markdown,text/plain">
+            <div id="recentPromptMarkdownList" class="recent-prompt-list hidden"></div>
             <textarea id="generationPromptTemplate" rows="7"></textarea>
             <div class="mini-actions">
               <button id="savePromptTemplateButton">Save</button>
@@ -115,17 +122,37 @@
           <span id="statusText" class="status-text"></span>
         </div>
 
-        <label class="label" for="lyricsOutput">Lyrics</label>
-        <textarea id="lyricsOutput" rows="6"></textarea>
+        <div class="field-block">
+          <div class="field-header">
+            <label class="label" for="lyricsOutput">Lyrics</label>
+            <button class="copy-field-button" type="button" data-copy-target="lyricsOutput" data-copy-label="Lyrics" title="Copy Lyrics" aria-label="Copy Lyrics"></button>
+          </div>
+          <textarea id="lyricsOutput" rows="6"></textarea>
+        </div>
 
-        <label class="label" for="styleOutput">Styles</label>
-        <textarea id="styleOutput" rows="2"></textarea>
+        <div class="field-block">
+          <div class="field-header">
+            <label class="label" for="styleOutput">Styles</label>
+            <button class="copy-field-button" type="button" data-copy-target="styleOutput" data-copy-label="Styles" title="Copy Styles" aria-label="Copy Styles"></button>
+          </div>
+          <textarea id="styleOutput" rows="2"></textarea>
+        </div>
 
-        <label class="label" for="excludeOutput">Exclude Styles</label>
-        <textarea id="excludeOutput" rows="2"></textarea>
+        <div class="field-block">
+          <div class="field-header">
+            <label class="label" for="excludeOutput">Exclude Styles</label>
+            <button class="copy-field-button" type="button" data-copy-target="excludeOutput" data-copy-label="Exclude Styles" title="Copy Exclude Styles" aria-label="Copy Exclude Styles"></button>
+          </div>
+          <textarea id="excludeOutput" rows="2"></textarea>
+        </div>
 
-        <label class="label" for="titleOutput">Song Title (Optional)</label>
-        <input id="titleOutput" type="text">
+        <div class="field-block">
+          <div class="field-header">
+            <label class="label" for="titleOutput">Song Title (Optional)</label>
+            <button class="copy-field-button" type="button" data-copy-target="titleOutput" data-copy-label="Song Title" title="Copy Song Title" aria-label="Copy Song Title"></button>
+          </div>
+          <input id="titleOutput" type="text">
+        </div>
       </section>
 
       <section class="section collapsible-section field-details">
@@ -141,8 +168,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260607-interview-optional"></script>
-    <script src="./js/core.js?v=20260607-interview-optional"></script>
-    <script src="./js/main.js?v=20260607-interview-optional"></script>
+    <script src="./js/cep.js?v=20260607-recent-muted"></script>
+    <script src="./js/core.js?v=20260607-recent-muted"></script>
+    <script src="./js/main.js?v=20260607-recent-muted"></script>
   </body>
 </html>

@@ -93,6 +93,67 @@
     return String(parsed.summary || "").trim();
   }
 
+  function extractPromptFromMarkdown(markdownText) {
+    var text = String(markdownText || "").replace(/\r\n/g, "\n");
+    var fencePattern = /(^|\n)(```|~~~)[^\n]*\n([\s\S]*?)\n\2(?=\n|$)/g;
+    var match;
+    while ((match = fencePattern.exec(text))) {
+      var block = String(match[3] || "").trim();
+      if (block) {
+        return block;
+      }
+    }
+
+    return text
+      .replace(/^---\n[\s\S]*?\n---\n?/, "")
+      .split("\n")
+      .filter(function (line) {
+        return !/^\s{0,3}#{1,6}\s+/.test(line);
+      })
+      .join("\n")
+      .trim();
+  }
+
+  function promptFileNameFromPath(path) {
+    return String(path || "")
+      .split(/[\\/]/)
+      .filter(Boolean)
+      .pop();
+  }
+
+  function normalizeRecentPromptFiles(list, nextFile) {
+    var items = [];
+    if (nextFile && nextFile.path) {
+      items.push({
+        path: String(nextFile.path),
+        name: String(nextFile.name || promptFileNameFromPath(nextFile.path) || nextFile.path),
+        lastLoadedAt: nextFile.lastLoadedAt || Date.now(),
+      });
+    }
+
+    (list || []).forEach(function (item) {
+      if (!item || !item.path) {
+        return;
+      }
+      items.push({
+        path: String(item.path),
+        name: String(item.name || promptFileNameFromPath(item.path) || item.path),
+        lastLoadedAt: item.lastLoadedAt || 0,
+      });
+    });
+
+    var seen = {};
+    return items
+      .filter(function (item) {
+        if (seen[item.path]) {
+          return false;
+        }
+        seen[item.path] = true;
+        return true;
+      })
+      .slice(0, 5);
+  }
+
   function buildDeepSeekRequest(messages, options) {
     var settings = options || {};
     return {
@@ -216,51 +277,22 @@
     return [
       "You are a film music supervisor and Suno Advanced/Custom Mode prompt engineer.",
       "",
-      "Convert Premiere timeline markers, director comments, additional context, and optional editor answers into concise Suno fields. The source notes usually describe story action, character psychology, intended audience emotion, vocal direction, arrangement notes, sound-design handoffs, or local production constraints.",
+      "Convert Premiere timeline markers, director comments, and optional editor answers into concise English fields for Suno. The cue is usually for picture, and marker comments often describe story action, character psychology, and the emotion the audience should feel rather than direct music terminology.",
       "",
-      "Core principle:",
-      "Preserve the director/editor's original intent. Suno can respond to natural-language context in the Lyrics field, so keep meaningful story and emotion guidance when it helps the music understand why the cue changes.",
+      "First infer each marker's narrative beat, character point of view, audience emotion, and energy change. Then translate those abstractions into musical behavior: instrumentation, texture, harmony, rhythm, density, register, dynamics, tempo feel, and transitions. Do not merely repeat plot or feelings in the Suno fields; turn them into playable music direction.",
       "",
-      "First understand:",
-      "- the scene's emotional arc",
-      "- what the audience should feel at each marker",
-      "- which markers are emotional turns, vocal/lyrics instructions, arrangement notes, sound-design handoffs, restraint notes, or local constraints",
-      "- how energy, density, intimacy, danger, hope, grief, release, or tension should evolve",
+      "Write for these Suno fields:",
       "",
-      "Then write the Suno fields:",
-      "",
-      "Lyrics:",
-      "Use this as the main cue map. By default, assume this is an instrumental cue and do not write sung lyrics. Instead, write bracketed section guidance that combines natural-language scene/emotion intent with concrete musical behavior.",
-      "",
-      "Each important section should usually include both:",
-      "1. preserved dramatic/emotional intent, such as \"after chaos, the protagonist is stunned and afraid\" or \"a quiet farewell begins\"",
-      "2. musical behavior, such as \"low strings, unstable sub pulses, fragile piano, thinning texture, restrained percussion\"",
-      "",
-      "Do not over-compress the marker comments. You may merge adjacent markers that describe the same continuous movement, but preserve distinct emotional beats, character decisions, vocal entrances/exits, sound-effect handoffs, climaxes, and aftermaths.",
-      "",
-      "Use relative arrangement language such as opening, early tension, emotional turn, vocal entrance, first lift, breath drop, second climb, climax, SFX handoff, aftermath, release, and ending. Include approximate timestamps when they help organize the cue, but treat them as guidance rather than exact synchronization.",
-      "",
-      "If the user explicitly asks for vocals, a song, or lyrics, write or preserve singable lyrics in the requested language. Sung lyrics do not need to be English. Surround lyrics with bracketed section and performance notes where helpful.",
-      "",
-      "Styles:",
-      "Write short comma-separated Suno style text covering genre/subgenre, mood, tempo feel, core instruments, production texture, vocal presence, and cinematic function. Keep it focused, not a long paragraph.",
-      "",
-      "Exclude Styles:",
-      "List concrete things to avoid, such as unwanted vocals, pop hook, bright comedy tone, trap drums, distorted guitars, choir, heavy percussion, over-polished EDM, or any other unwanted sound inferred from the brief.",
-      "",
-      "Song Title (Optional):",
-      "Write a short evocative title.",
-      "",
-      "AI Notes:",
-      "Briefly explain how the marker arc was translated, and mention any uncertainty or timing caveat.",
+      "- Lyrics: by default, assume this is an instrumental cue and do not write sung lyrics. For instrumental cues, use bracketed arrangement guidance and cue-map language, such as [Instrumental], [restrained intro], [slow emotional build], [soft resolve]. Include approximate relative timings only as creative guidance, not as promises Suno can hit exactly. If the user explicitly asks for vocals, a song, or lyrics, then write concise singable lyrics that follow the scene's emotional point of view, and still use bracketed section tags where helpful.",
+      "- Styles: write a compact comma-separated style prompt covering genre/subgenre, mood, tempo feel, core instruments, production texture, and cinematic function. Avoid vague filler.",
+      "- Exclude Styles: list concrete things to avoid, such as vocals, pop hook, heavy drums, bright comedy tone, distorted guitars, choir, trap drums, or any unwanted instruments/styles inferred from the brief.",
+      "- Song Title (Optional): short and evocative.",
+      "- AI Notes: briefly explain interpretation choices, timing caveats, and any uncertainty.",
       "",
       "Rules:",
-      "- Preserve director/editor meaning before optimizing wording.",
-      "- Prefer emotion + music behavior over music behavior alone.",
-      "- Do not delete important feelings just because they are not technical music terms.",
-      "- Suno-facing instruction text should mostly be concise English, but sung lyrics may remain in Chinese or any requested language.",
-      "- Keep Lyrics useful for direct paste into Suno's Lyrics box.",
-      "- Keep Styles useful for direct paste into Suno's Styles box.",
+      "- Final Suno-facing fields must be in English, even if source comments are Chinese.",
+      "- Prefer specific musical behavior over abstract adjectives: what enters, what recedes, what builds, what should stay restrained, what becomes denser or thinner, and how transitions should feel.",
+      "- Keep outputs usable for copy-paste into Suno without extra explanation inside the Suno fields.",
       "- Return strict JSON only with keys: title, prompt, style, lyricsStructure, exclude, editorNotes.",
     ].join("\n");
   }
@@ -443,6 +475,8 @@
     buildExternalLlmPrompt: buildExternalLlmPrompt,
     defaultGenerationSystemPrompt: defaultGenerationSystemPrompt,
     formatCueText: formatCueText,
+    extractPromptFromMarkdown: extractPromptFromMarkdown,
+    normalizeRecentPromptFiles: normalizeRecentPromptFiles,
     additionalContextStorageKey: additionalContextStorageKey,
     legacyAdditionalContextStorageKey: legacyAdditionalContextStorageKey,
   };

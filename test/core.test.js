@@ -16,6 +16,8 @@ const {
   legacyAdditionalContextStorageKey,
   buildInterviewSummaryMessages,
   normalizeInterviewSummaryJson,
+  extractPromptFromMarkdown,
+  normalizeRecentPromptFiles,
 } = require("../SunoCueWriter/js/core");
 
 test("attaches core API to window even when CommonJS module exists", () => {
@@ -126,20 +128,22 @@ test("builds generation messages with markers and optional interview answers", (
   );
 
   assert.match(messages[0].content, /Suno Advanced\/Custom Mode prompt engineer/i);
-  assert.match(messages[0].content, /additional context/i);
-  assert.match(messages[0].content, /story action, character psychology, intended audience emotion, vocal direction, arrangement notes, sound-design handoffs, or local production constraints/i);
-  assert.match(messages[0].content, /Preserve the director\/editor's original intent/i);
-  assert.match(messages[0].content, /natural-language scene\/emotion intent with concrete musical behavior/i);
-  assert.match(messages[0].content, /Do not over-compress the marker comments/i);
-  assert.match(messages[0].content, /preserve distinct emotional beats, character decisions, vocal entrances\/exits, sound-effect handoffs, climaxes, and aftermaths/i);
-  assert.match(messages[0].content, /opening, early tension, emotional turn, vocal entrance/i);
-  assert.match(messages[0].content, /emotion \+ music behavior/i);
-  assert.match(messages[0].content, /by default, assume this is an instrumental cue/i);
+  assert.match(messages[0].content, /Convert Premiere timeline markers, director comments, and optional editor answers/i);
+  assert.match(messages[0].content, /marker comments often describe story action, character psychology, and the emotion the audience should feel/i);
+  assert.match(messages[0].content, /infer each marker's narrative beat, character point of view, audience emotion, and energy change/i);
+  assert.match(messages[0].content, /translate those abstractions into musical behavior: instrumentation, texture, harmony, rhythm, density, register, dynamics, tempo feel, and transitions/i);
+  assert.match(messages[0].content, /Do not merely repeat plot or feelings in the Suno fields/i);
+  assert.match(messages[0].content, /turn them into playable music direction/i);
+  assert.match(messages[0].content, /by default, assume this is an instrumental cue and do not write sung lyrics/i);
   assert.match(messages[0].content, /If the user explicitly asks for vocals, a song, or lyrics/i);
+  assert.match(messages[0].content, /Final Suno-facing fields must be in English/i);
+  assert.match(messages[0].content, /Prefer specific musical behavior over abstract adjectives/i);
+  assert.match(messages[0].content, /Keep outputs usable for copy-paste into Suno/i);
   assert.doesNotMatch(messages[0].content, /whose point of view/i);
   assert.doesNotMatch(messages[0].content, /Do not flatten emotional or narrative notes/i);
   assert.doesNotMatch(messages[0].content, /mythic peak|roar space|sunbreak/i);
   assert.doesNotMatch(messages[0].content, /3-5 most important cue moments/i);
+  assert.doesNotMatch(messages[0].content, /Preserve the director\/editor's original intent/i);
   assert.doesNotMatch(messages[0].content, /copyrighted artist/i);
   assert.match(messages[1].content, /internal JSON fields/);
   assert.match(messages[1].content, /avoid obvious melodrama/);
@@ -159,8 +163,8 @@ test("uses an editable generation system prompt for API and external workflows",
   assert.equal(messages[0].content, customPrompt);
   assert.match(externalPrompt, /You are my custom Suno cue prompt engineer/);
   assert.match(defaultGenerationSystemPrompt(), /Suno Advanced\/Custom Mode prompt engineer/);
-  assert.match(defaultGenerationSystemPrompt(), /Preserve the director\/editor's original intent/);
-  assert.match(defaultGenerationSystemPrompt(), /emotion \+ music behavior/);
+  assert.match(defaultGenerationSystemPrompt(), /turn them into playable music direction/);
+  assert.match(defaultGenerationSystemPrompt(), /Final Suno-facing fields must be in English/);
   assert.match(defaultGenerationSystemPrompt(), /Return strict JSON only with keys: title, prompt, style, lyricsStructure, exclude, editorNotes/);
   assert.doesNotMatch(defaultGenerationSystemPrompt(), /v5/i);
   assert.doesNotMatch(defaultGenerationSystemPrompt(), /v5\.5/i);
@@ -181,6 +185,76 @@ test("formats all generated fields for text export and copy-all", () => {
   assert.match(text, /Exclude Styles:\nvocals/);
   assert.match(text, /Song Title \(Optional\):\nRooftop Release/);
   assert.match(text, /AI Notes:\nUse timing/);
+});
+
+test("renders copy buttons for direct Suno paste fields", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
+
+  [
+    ["lyricsOutput", "Lyrics"],
+    ["styleOutput", "Styles"],
+    ["excludeOutput", "Exclude Styles"],
+    ["titleOutput", "Song Title"],
+  ].forEach(([targetId, label]) => {
+    assert.match(html, new RegExp('data-copy-target="' + targetId + '"'));
+    assert.match(html, new RegExp('data-copy-label="' + label + '"'));
+    assert.match(html, new RegExp('aria-label="Copy ' + label + '"'));
+  });
+
+  assert.doesNotMatch(html, /data-copy-target="notesOutput"/);
+});
+
+test("renders markdown prompt loader controls in engineer prompt config", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
+
+  assert.match(html, /id="promptMarkdownPath"/);
+  assert.match(html, /id="browsePromptMarkdownButton"/);
+  assert.match(html, /id="recentPromptMarkdownButton"/);
+  assert.match(html, /id="recentPromptMarkdownList"/);
+  assert.match(html, /id="promptMarkdownFileInput"/);
+  assert.match(html, /accept="\.md,\.markdown,text\/markdown,text\/plain"/);
+});
+
+test("extracts prompt text from markdown fenced code blocks", () => {
+  assert.equal(
+    extractPromptFromMarkdown("# Prompt note\n\nSome setup.\n\n```text\n  Use this prompt.\nKeep line breaks.  \n```\n\nMore notes."),
+    "Use this prompt.\nKeep line breaks.",
+  );
+
+  assert.equal(extractPromptFromMarkdown("Intro\n\n~~~\nWave one\n~~~"), "Wave one");
+  assert.equal(extractPromptFromMarkdown("```\n   \n```\n\n```prompt\nSecond block\n```"), "Second block");
+});
+
+test("extracts markdown prompt from body without headings when no code block exists", () => {
+  assert.equal(
+    extractPromptFromMarkdown("---\ntitle: Test\n---\n# Main Prompt\n\nKeep this line.\n## Notes\nKeep this too."),
+    "Keep this line.\nKeep this too.",
+  );
+  assert.equal(extractPromptFromMarkdown("# Only title"), "");
+  assert.equal(extractPromptFromMarkdown(""), "");
+});
+
+test("normalizes recent prompt markdown files", () => {
+  const current = [
+    { path: "/vault/a.md", name: "a.md", lastLoadedAt: 1 },
+    { path: "/vault/b.md", name: "b.md", lastLoadedAt: 2 },
+    { path: "/vault/c.md", name: "c.md", lastLoadedAt: 3 },
+    { path: "/vault/d.md", name: "d.md", lastLoadedAt: 4 },
+    { path: "/vault/e.md", name: "e.md", lastLoadedAt: 5 },
+  ];
+  const recent = normalizeRecentPromptFiles(current, { path: "/vault/c.md", name: "Custom C.md", lastLoadedAt: 10 });
+
+  assert.deepEqual(
+    recent.map((item) => item.path),
+    ["/vault/c.md", "/vault/a.md", "/vault/b.md", "/vault/d.md", "/vault/e.md"],
+  );
+  assert.equal(recent[0].name, "Custom C.md");
+  assert.equal(normalizeRecentPromptFiles(current, { path: "/vault/f.md", name: "f.md", lastLoadedAt: 6 }).length, 5);
+  assert.deepEqual(normalizeRecentPromptFiles([{ path: "" }, null], null), []);
 });
 
 test("builds an additional context storage key scoped to the project", () => {
