@@ -128,15 +128,17 @@ test("builds generation messages with markers and optional interview answers", (
   assert.match(messages[0].content, /Suno Advanced\/Custom Mode prompt engineer/i);
   assert.match(messages[0].content, /additional context/i);
   assert.match(messages[0].content, /story action, character psychology, intended audience emotion, vocal direction, arrangement notes, sound-design handoffs, or local production constraints/i);
-  assert.match(messages[0].content, /read each marker as a cue instruction/i);
-  assert.match(messages[0].content, /vocal\/lyrics instruction, an arrangement note, a sound-design handoff, an avoidance note, or a local production constraint/i);
-  assert.match(messages[0].content, /instrumentation, texture, harmony, rhythm, density, register, dynamics, tempo feel, transitions, vocal presence, lyric placement, silence, restraint, and space for dialogue or sound effects/i);
-  assert.match(messages[0].content, /Convert exact marker times into relative arrangement guidance/i);
-  assert.match(messages[0].content, /opening, early build, midpoint drop, first climax, final release, and aftermath/i);
-  assert.match(messages[0].content, /Treat markers as local cue instructions, not only emotional turning points/i);
-  assert.match(messages[0].content, /Do not merely repeat plot or feelings/i);
+  assert.match(messages[0].content, /Preserve the director\/editor's original intent/i);
+  assert.match(messages[0].content, /natural-language scene\/emotion intent with concrete musical behavior/i);
+  assert.match(messages[0].content, /Do not over-compress the marker comments/i);
+  assert.match(messages[0].content, /preserve distinct emotional beats, character decisions, vocal entrances\/exits, sound-effect handoffs, climaxes, and aftermaths/i);
+  assert.match(messages[0].content, /opening, early tension, emotional turn, vocal entrance/i);
+  assert.match(messages[0].content, /emotion \+ music behavior/i);
   assert.match(messages[0].content, /by default, assume this is an instrumental cue/i);
   assert.match(messages[0].content, /If the user explicitly asks for vocals, a song, or lyrics/i);
+  assert.doesNotMatch(messages[0].content, /whose point of view/i);
+  assert.doesNotMatch(messages[0].content, /Do not flatten emotional or narrative notes/i);
+  assert.doesNotMatch(messages[0].content, /mythic peak|roar space|sunbreak/i);
   assert.doesNotMatch(messages[0].content, /3-5 most important cue moments/i);
   assert.doesNotMatch(messages[0].content, /copyrighted artist/i);
   assert.match(messages[1].content, /internal JSON fields/);
@@ -157,6 +159,11 @@ test("uses an editable generation system prompt for API and external workflows",
   assert.equal(messages[0].content, customPrompt);
   assert.match(externalPrompt, /You are my custom Suno cue prompt engineer/);
   assert.match(defaultGenerationSystemPrompt(), /Suno Advanced\/Custom Mode prompt engineer/);
+  assert.match(defaultGenerationSystemPrompt(), /Preserve the director\/editor's original intent/);
+  assert.match(defaultGenerationSystemPrompt(), /emotion \+ music behavior/);
+  assert.match(defaultGenerationSystemPrompt(), /Return strict JSON only with keys: title, prompt, style, lyricsStructure, exclude, editorNotes/);
+  assert.doesNotMatch(defaultGenerationSystemPrompt(), /v5/i);
+  assert.doesNotMatch(defaultGenerationSystemPrompt(), /v5\.5/i);
 });
 
 test("formats all generated fields for text export and copy-all", () => {
@@ -353,6 +360,8 @@ test("formats additional context without a fake timeline timestamp in external p
   assert.equal((prompt.match(/Duration seconds: 60/g) || []).length, 1);
   assert.doesNotMatch(prompt, /\[0s\] Name: Additional context/);
   assert.doesNotMatch(prompt, /Additional context\. Comments:/);
+  assert.doesNotMatch(prompt, /Additional context from editor interview/);
+  assert.doesNotMatch(prompt, /No additional interview answers provided/);
 });
 
 test("builds an external LLM prompt with cue context and interview answers", () => {

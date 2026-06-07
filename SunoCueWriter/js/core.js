@@ -216,27 +216,51 @@
     return [
       "You are a film music supervisor and Suno Advanced/Custom Mode prompt engineer.",
       "",
-      "Convert Premiere timeline markers, director comments, additional context, and optional editor answers into concise English fields for Suno. The source notes usually describe story action, character psychology, intended audience emotion, vocal direction, arrangement notes, sound-design handoffs, or local production constraints rather than direct music terminology.",
+      "Convert Premiere timeline markers, director comments, additional context, and optional editor answers into concise Suno fields. The source notes usually describe story action, character psychology, intended audience emotion, vocal direction, arrangement notes, sound-design handoffs, or local production constraints.",
       "",
-      "Infer the cue's overall emotional arc, then read each marker as a cue instruction: it may describe an emotional or narrative turning point, a vocal/lyrics instruction, an arrangement note, a sound-design handoff, an avoidance note, or a local production constraint.",
+      "Core principle:",
+      "Preserve the director/editor's original intent. Suno can respond to natural-language context in the Lyrics field, so keep meaningful story and emotion guidance when it helps the music understand why the cue changes.",
       "",
-      "Translate these marker instructions into musical behavior: instrumentation, texture, harmony, rhythm, density, register, dynamics, tempo feel, transitions, vocal presence, lyric placement, silence, restraint, and space for dialogue or sound effects. Do not merely repeat plot or feelings in the Suno fields. Turn them into playable music direction.",
+      "First understand:",
+      "- the scene's emotional arc",
+      "- what the audience should feel at each marker",
+      "- which markers are emotional turns, vocal/lyrics instructions, arrangement notes, sound-design handoffs, restraint notes, or local constraints",
+      "- how energy, density, intimacy, danger, hope, grief, release, or tension should evolve",
       "",
-      "Convert exact marker times into relative arrangement guidance such as opening, early build, midpoint drop, first climax, final release, and aftermath, while preserving important approximate timestamps when they help organize the cue.",
+      "Then write the Suno fields:",
       "",
-      "Write for these Suno fields:",
-      "- Lyrics: by default, assume this is an instrumental cue and do not write sung lyrics. For instrumental cues, write a compact cue map using bracketed section tags, such as [Instrumental], [opening: sparse low tension], [midpoint: restrained emotional lift], [climax: dense heroic surge], [aftermath: soft unresolved fade]. Keep this field focused on essential arrangement instructions. If the user explicitly asks for vocals, a song, or lyrics, then write concise singable lyrics that follow the scene's emotional point of view, with bracketed section tags where helpful.",
-      "- Styles: write short comma-separated Suno style tags covering genre/subgenre, mood, tempo feel, core instruments, production texture, and cinematic function. Avoid long sentences.",
-      "- Exclude Styles: list concrete things to avoid, such as vocals, pop hook, heavy drums, bright comedy tone, distorted guitars, choir, trap drums, or unwanted instruments/styles inferred from the brief.",
-      "- Song Title (Optional): short and evocative.",
-      "- AI Notes: briefly explain how the marker timing was translated into arrangement guidance, and note any uncertainty.",
+      "Lyrics:",
+      "Use this as the main cue map. By default, assume this is an instrumental cue and do not write sung lyrics. Instead, write bracketed section guidance that combines natural-language scene/emotion intent with concrete musical behavior.",
+      "",
+      "Each important section should usually include both:",
+      "1. preserved dramatic/emotional intent, such as \"after chaos, the protagonist is stunned and afraid\" or \"a quiet farewell begins\"",
+      "2. musical behavior, such as \"low strings, unstable sub pulses, fragile piano, thinning texture, restrained percussion\"",
+      "",
+      "Do not over-compress the marker comments. You may merge adjacent markers that describe the same continuous movement, but preserve distinct emotional beats, character decisions, vocal entrances/exits, sound-effect handoffs, climaxes, and aftermaths.",
+      "",
+      "Use relative arrangement language such as opening, early tension, emotional turn, vocal entrance, first lift, breath drop, second climb, climax, SFX handoff, aftermath, release, and ending. Include approximate timestamps when they help organize the cue, but treat them as guidance rather than exact synchronization.",
+      "",
+      "If the user explicitly asks for vocals, a song, or lyrics, write or preserve singable lyrics in the requested language. Sung lyrics do not need to be English. Surround lyrics with bracketed section and performance notes where helpful.",
+      "",
+      "Styles:",
+      "Write short comma-separated Suno style text covering genre/subgenre, mood, tempo feel, core instruments, production texture, vocal presence, and cinematic function. Keep it focused, not a long paragraph.",
+      "",
+      "Exclude Styles:",
+      "List concrete things to avoid, such as unwanted vocals, pop hook, bright comedy tone, trap drums, distorted guitars, choir, heavy percussion, over-polished EDM, or any other unwanted sound inferred from the brief.",
+      "",
+      "Song Title (Optional):",
+      "Write a short evocative title.",
+      "",
+      "AI Notes:",
+      "Briefly explain how the marker arc was translated, and mention any uncertainty or timing caveat.",
       "",
       "Rules:",
-      "- Final Suno-facing fields must be in English, even if source comments are Chinese.",
-      "- Prefer a clear emotional arc while preserving the marker-driven progression.",
-      "- Treat markers as local cue instructions, not only emotional turning points.",
-      "- Prefer specific musical behavior over abstract adjectives: what enters, what recedes, what builds, what stays restrained, what becomes denser or thinner, where vocals or lyrics should appear or disappear, and how transitions should feel.",
-      "- Keep outputs usable for copy-paste into Suno without extra explanation inside the Suno fields.",
+      "- Preserve director/editor meaning before optimizing wording.",
+      "- Prefer emotion + music behavior over music behavior alone.",
+      "- Do not delete important feelings just because they are not technical music terms.",
+      "- Suno-facing instruction text should mostly be concise English, but sung lyrics may remain in Chinese or any requested language.",
+      "- Keep Lyrics useful for direct paste into Suno's Lyrics box.",
+      "- Keep Styles useful for direct paste into Suno's Styles box.",
       "- Return strict JSON only with keys: title, prompt, style, lyricsStructure, exclude, editorNotes.",
     ].join("\n");
   }
@@ -290,7 +314,7 @@
         return index + 1 + ". " + item.answer;
       });
 
-    return answers.length ? answers.join("\n") : "No additional interview answers provided.";
+    return answers.join("\n");
   }
 
   function externalCueContext(cue) {
@@ -324,7 +348,8 @@
   }
 
   function buildExternalLlmPrompt(cue, interviewAnswers, options) {
-    return [
+    var formattedInterviewAnswers = formatInterviewAnswers(interviewAnswers);
+    var parts = [
       "You are generating text for Suno's current Advanced Create UI.",
       "",
       "Important output format:",
@@ -347,9 +372,13 @@
       "",
       "Premiere cue context:",
       externalCueContext(cue),
-      "",
-      "Additional context from editor interview:",
-      formatInterviewAnswers(interviewAnswers),
+    ];
+
+    if (formattedInterviewAnswers) {
+      parts = parts.concat(["", "Additional context from editor interview:", formattedInterviewAnswers]);
+    }
+
+    return parts.concat([
       "",
       "Return the result as plain text in this exact structure:",
       "",
@@ -367,7 +396,7 @@
       "",
       "AI Notes:",
       "<brief internal note about interpretation choices and any timing caveats>",
-    ].join("\n");
+    ]).join("\n");
   }
 
   function formatCueText(fields) {
