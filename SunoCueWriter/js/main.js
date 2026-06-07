@@ -9,6 +9,17 @@
     generated: {},
     model: "deepseek-v4-pro",
   };
+  var progressState = {
+    timer: null,
+    hideTimer: null,
+    startedAt: 0,
+    message: "",
+    showElapsed: false,
+  };
+  var manualBriefState = {
+    storageKey: "",
+    saveTimer: null,
+  };
 
   var $ = function (id) {
     return document.getElementById(id);
@@ -38,9 +49,83 @@
 
   function setActivity(message) {
     var hasMessage = !!message;
+    if (hasMessage && progressState.hideTimer) {
+      window.clearTimeout(progressState.hideTimer);
+      progressState.hideTimer = null;
+    }
     $("activityIndicator").classList.toggle("hidden", !hasMessage);
     if (hasMessage) {
       $("activityText").textContent = message;
+    }
+  }
+
+  function clearProgressTimers() {
+    if (progressState.timer) {
+      window.clearInterval(progressState.timer);
+      progressState.timer = null;
+    }
+    if (progressState.hideTimer) {
+      window.clearTimeout(progressState.hideTimer);
+      progressState.hideTimer = null;
+    }
+  }
+
+  function progressElapsedSeconds() {
+    return Math.max(0, Math.floor((Date.now() - progressState.startedAt) / 1000));
+  }
+
+  function renderProgress() {
+    if (!progressState.message) {
+      setActivity("");
+      return;
+    }
+    if (!progressState.showElapsed) {
+      setActivity(progressState.message);
+      return;
+    }
+
+    var elapsed = progressElapsedSeconds();
+    var message = elapsed >= 25 ? "仍在等待模型返回..." : progressState.message;
+    setActivity(message + " " + elapsed + "s");
+  }
+
+  function startProgress(label) {
+    clearProgressTimers();
+    progressState.startedAt = Date.now();
+    progressState.message = label;
+    progressState.showElapsed = false;
+    renderProgress();
+  }
+
+  function updateProgress(message, showElapsed) {
+    if (!progressState.startedAt) {
+      progressState.startedAt = Date.now();
+    }
+    if (progressState.timer) {
+      window.clearInterval(progressState.timer);
+      progressState.timer = null;
+    }
+    progressState.message = message;
+    progressState.showElapsed = !!showElapsed;
+    renderProgress();
+    if (progressState.showElapsed) {
+      progressState.timer = window.setInterval(renderProgress, 1000);
+    }
+  }
+
+  function stopProgress(finalMessage) {
+    clearProgressTimers();
+    progressState.message = "";
+    progressState.showElapsed = false;
+    progressState.startedAt = 0;
+    if (finalMessage) {
+      setActivity(finalMessage);
+      progressState.hideTimer = window.setTimeout(function () {
+        progressState.hideTimer = null;
+        setActivity("");
+      }, 1200);
+    } else {
+      setActivity("");
     }
   }
 
@@ -102,6 +187,45 @@
     localStorage.removeItem("generationPromptTemplate");
     $("generationPromptTemplate").value = core.defaultGenerationSystemPrompt();
     setStatus("API prompt template reset to default.");
+  }
+
+  function loadManualBriefForCue(cue) {
+    flushManualBriefSave();
+    manualBriefState.storageKey = cue ? core.additionalContextStorageKey(cue) : "";
+    $("manualBrief").value = manualBriefState.storageKey ? localStorage.getItem(manualBriefState.storageKey) || "" : "";
+  }
+
+  function saveManualBriefForCue() {
+    if (!manualBriefState.storageKey) {
+      return;
+    }
+    var value = $("manualBrief").value;
+    if (value) {
+      localStorage.setItem(manualBriefState.storageKey, value);
+    } else {
+      localStorage.removeItem(manualBriefState.storageKey);
+    }
+  }
+
+  function scheduleManualBriefSave() {
+    if (!manualBriefState.storageKey && state.cue) {
+      manualBriefState.storageKey = core.additionalContextStorageKey(state.cue);
+    }
+    if (manualBriefState.saveTimer) {
+      window.clearTimeout(manualBriefState.saveTimer);
+    }
+    manualBriefState.saveTimer = window.setTimeout(function () {
+      manualBriefState.saveTimer = null;
+      saveManualBriefForCue();
+    }, 300);
+  }
+
+  function flushManualBriefSave() {
+    if (manualBriefState.saveTimer) {
+      window.clearTimeout(manualBriefState.saveTimer);
+      manualBriefState.saveTimer = null;
+    }
+    saveManualBriefForCue();
   }
 
   function cepRequire(name) {
@@ -297,6 +421,7 @@
     })
       .then(function (cue) {
         state.cue = cue;
+        loadManualBriefForCue(cue);
         renderCue();
         setTimelineStatus("Timeline loaded.");
         setTimelineDiagnostics(cue.diagnostics || "", false);
@@ -428,57 +553,72 @@
   }
 
   function askInterview() {
+    startProgress("准备时间线和导演批注...");
     var cue = cueWithManualBrief();
     var validation = core.validateCueForGeneration(cue);
     if (!validation.ok) {
+      stopProgress("");
       setStatus(validation.message, true);
       setTimelineStatus(validation.message, true);
       return;
     }
 
+    updateProgress("整理成 AI 提问 brief...");
+    var messages = core.buildInterviewMessages(cue);
     setBusy(true);
-    setActivity("Calling DeepSeek for context questions...");
+    updateProgress("发送给 DeepSeek...");
     setStatus("Asking AI for context questions...");
-    callDeepSeek(core.buildInterviewMessages(cue))
+    updateProgress("等待 DeepSeek 返回中文问题...", true);
+    callDeepSeek(messages)
       .then(function (response) {
-        setActivity("Parsing AI questions...");
+        updateProgress("解析问题...");
         state.questions = core.normalizeInterviewJson(getAssistantContent(response));
         renderQuestions();
         setStatus(state.questions.length ? "Answer the questions, then generate." : "AI returned no usable questions.", !state.questions.length);
+        stopProgress("完成，可以回答问题了。");
       })
       .catch(function (error) {
         setStatus(error.message + " You can still use direct generation.", true);
+        stopProgress("请求失败，已保留当前内容。");
       })
       .finally(function () {
         setBusy(false);
-        setActivity("");
       });
   }
 
   function generateFields(useAnswers) {
+    startProgress("准备 marker、brief 和回答...");
     var cue = cueWithManualBrief();
     var validation = core.validateCueForGeneration(cue);
     if (!validation.ok) {
+      stopProgress("");
       setStatus(validation.message, true);
       setTimelineStatus(validation.message, true);
       return;
     }
 
+    var answers = useAnswers ? collectAnswers() : [];
+    updateProgress("套用 Engineer Prompt...");
+    var messages = core.buildGenerationMessages(cue, answers, { generationSystemPrompt: getGenerationPromptTemplate() });
     setBusy(true);
-    setActivity("Calling DeepSeek to write Suno fields...");
+    updateProgress("发送给 DeepSeek...");
     setStatus("Generating Suno fields...");
-    callDeepSeek(core.buildGenerationMessages(cue, useAnswers ? collectAnswers() : [], { generationSystemPrompt: getGenerationPromptTemplate() }))
+    updateProgress("等待 DeepSeek 生成 Suno fields...", true);
+    callDeepSeek(messages)
       .then(function (response) {
-        setActivity("Formatting Suno fields...");
-        renderGenerated(core.normalizeDeepSeekJson(getAssistantContent(response)));
+        updateProgress("解析 JSON...");
+        var fields = core.normalizeDeepSeekJson(getAssistantContent(response));
+        updateProgress("写入 Suno Fields...");
+        renderGenerated(fields);
         setStatus("Generated. Edit or copy fields below.");
+        stopProgress("完成，已写入 Suno Fields。");
       })
       .catch(function (error) {
         setStatus(error.message, true);
+        stopProgress("请求失败，已保留当前内容。");
       })
       .finally(function () {
         setBusy(false);
-        setActivity("");
       });
   }
 
@@ -604,6 +744,9 @@
     $("saveKeyButton").addEventListener("click", saveApiKeyPreference);
     $("savePromptTemplateButton").addEventListener("click", savePromptTemplatePreference);
     $("resetPromptTemplateButton").addEventListener("click", resetPromptTemplatePreference);
+    $("manualBrief").addEventListener("input", scheduleManualBriefSave);
+    $("manualBrief").addEventListener("blur", flushManualBriefSave);
+    window.addEventListener("beforeunload", flushManualBriefSave);
     $("refreshButton").addEventListener("click", refreshCue);
     $("interviewButton").addEventListener("click", askInterview);
     $("generateButton").addEventListener("click", function () {
@@ -618,17 +761,21 @@
       setStatus("Interview cleared.");
     });
     $("copyExternalPromptButton").addEventListener("click", function () {
+      startProgress("整理外部 LLM prompt...");
       var text = buildExternalPrompt();
       if (!text) {
+        stopProgress("");
         return;
       }
       showExternalPromptForManualCopy();
       copyText(text).then(function () {
         setStatus("Copied external LLM prompt. It is also selected below.");
         setTimelineStatus("External prompt copied and selected below. Paste it into Gemini, GPT, or another model.");
+        stopProgress("已复制。");
       }).catch(function (error) {
         setStatus("Could not copy automatically: " + error.message, true);
         setTimelineStatus("Automatic copy failed. The prompt is selected below; press Command+C to copy it manually.", true);
+        stopProgress("自动复制失败，已选中文本。");
       });
     });
   }

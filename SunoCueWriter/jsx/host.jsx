@@ -99,6 +99,12 @@ var SunoCueHost = SunoCueHost || {};
       }
 
       var sequence = app.project.activeSequence;
+      var projectPath = safeCall("projectPath", function () {
+        return app.project.path || "";
+      }, "");
+      var projectName = safeCall("projectName", function () {
+        return app.project.name || "";
+      }, "");
       var range = getInOut(sequence);
       var markers = [];
       var markerCollection = sequence.markers;
@@ -126,6 +132,8 @@ var SunoCueHost = SunoCueHost || {};
       }
 
       return jsonObject({
+        projectPath: projectPath,
+        projectName: projectName,
         sequenceName: sequence.name || "",
         inTime: secondsToDisplay(range.inSeconds),
         outTime: secondsToDisplay(range.outSeconds),

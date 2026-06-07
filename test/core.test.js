@@ -12,6 +12,7 @@ const {
   normalizeInterviewJson,
   validateCueForGeneration,
   formatCueText,
+  additionalContextStorageKey,
 } = require("../SunoCueWriter/js/core");
 
 test("attaches core API to window even when CommonJS module exists", () => {
@@ -89,7 +90,13 @@ test("builds an interview request that asks only high-value context questions", 
 
   assert.equal(messages[0].role, "system");
   assert.match(messages[0].content, /film music supervisor/i);
+  assert.match(messages[0].content, /Ask in Chinese/i);
+  assert.match(messages[0].content, /avoid music-theory/i);
+  assert.match(messages[0].content, /director or editor can answer/i);
   assert.match(messages[1].content, /2-4/);
+  assert.match(messages[1].content, /用中文提问/);
+  assert.match(messages[1].content, /comments and brief do not already explain/i);
+  assert.match(messages[1].content, /audience should feel/i);
   assert.match(messages[1].content, /Scene_04_Rooftop/);
   assert.match(messages[1].content, /压抑到打开/);
 });
@@ -116,12 +123,18 @@ test("builds generation messages with markers and optional interview answers", (
   );
 
   assert.match(messages[0].content, /Suno Advanced\/Custom Mode prompt engineer/i);
-  assert.match(messages[0].content, /story action, character psychology, and the emotion the audience should feel/i);
-  assert.match(messages[0].content, /narrative beat, character point of view, audience emotion, and energy change/i);
-  assert.match(messages[0].content, /instrumentation, texture, harmony, rhythm, density, register, dynamics, tempo feel, and transitions/i);
+  assert.match(messages[0].content, /additional context/i);
+  assert.match(messages[0].content, /story action, character psychology, intended audience emotion, vocal direction, arrangement notes, sound-design handoffs, or local production constraints/i);
+  assert.match(messages[0].content, /read each marker as a cue instruction/i);
+  assert.match(messages[0].content, /vocal\/lyrics instruction, an arrangement note, a sound-design handoff, an avoidance note, or a local production constraint/i);
+  assert.match(messages[0].content, /instrumentation, texture, harmony, rhythm, density, register, dynamics, tempo feel, transitions, vocal presence, lyric placement, silence, restraint, and space for dialogue or sound effects/i);
+  assert.match(messages[0].content, /Convert exact marker times into relative arrangement guidance/i);
+  assert.match(messages[0].content, /opening, early build, midpoint drop, first climax, final release, and aftermath/i);
+  assert.match(messages[0].content, /Treat markers as local cue instructions, not only emotional turning points/i);
   assert.match(messages[0].content, /Do not merely repeat plot or feelings/i);
   assert.match(messages[0].content, /by default, assume this is an instrumental cue/i);
   assert.match(messages[0].content, /If the user explicitly asks for vocals, a song, or lyrics/i);
+  assert.doesNotMatch(messages[0].content, /3-5 most important cue moments/i);
   assert.doesNotMatch(messages[0].content, /copyrighted artist/i);
   assert.match(messages[1].content, /internal JSON fields/);
   assert.match(messages[1].content, /avoid obvious melodrama/);
@@ -158,6 +171,30 @@ test("formats all generated fields for text export and copy-all", () => {
   assert.match(text, /Exclude Styles:\nvocals/);
   assert.match(text, /Song Title \(Optional\):\nRooftop Release/);
   assert.match(text, /AI Notes:\nUse timing/);
+});
+
+test("builds an additional context storage key scoped to project, sequence, and range", () => {
+  const key = additionalContextStorageKey({
+    projectPath: "/Users/xiali/film/scene.prproj",
+    projectName: "scene",
+    sequenceName: "S330_V8_0515",
+    inTime: "00:00:00.000",
+    outTime: "00:07:18.458",
+  });
+
+  assert.equal(key, "sunoCueWriter.additionalContext::/Users/xiali/film/scene.prproj::S330_V8_0515::00:00:00.000::00:07:18.458");
+});
+
+test("falls back to project name or sequence when building additional context key", () => {
+  assert.equal(
+    additionalContextStorageKey({
+      projectName: "Untitled Project",
+      sequenceName: "Seq",
+      inSeconds: 10,
+      outSeconds: 20,
+    }),
+    "sunoCueWriter.additionalContext::Untitled Project::Seq::10::20",
+  );
 });
 
 test("builds a DeepSeek request with JSON output and V4 Pro defaults", () => {
@@ -251,10 +288,13 @@ test("builds an external LLM prompt with cue context and interview answers", () 
   assert.match(prompt, /00:00:42:12 - 00:01:58:03/);
   assert.match(prompt, /压抑到打开/);
   assert.match(prompt, /Inner emotion, but keep it restrained/);
-  assert.match(prompt, /Return the result in this exact structure/);
+  assert.match(prompt, /Return the result as plain text in this exact structure/);
   assert.match(prompt, /Lyrics:/);
   assert.match(prompt, /Styles:/);
   assert.match(prompt, /Exclude Styles:/);
   assert.match(prompt, /Song Title \(Optional\):/);
+  assert.match(prompt, /Do not return JSON/i);
+  assert.match(prompt, /directly copyable into Suno's Lyrics, Styles, Exclude styles, and Song Title inputs/i);
+  assert.doesNotMatch(prompt, /Return strict JSON only/i);
   assert.doesNotMatch(prompt, /copyrighted artist/i);
 });
