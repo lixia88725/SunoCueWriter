@@ -130,7 +130,7 @@
   }
 
   function setBusy(isBusy) {
-    ["generateButton", "interviewButton", "generateWithAnswersButton", "refreshButton"].forEach(function (id) {
+    ["generateButton", "interviewButton", "generateWithAnswersButton", "saveInterviewSummaryButton", "refreshButton"].forEach(function (id) {
       var node = $(id);
       if (node) {
         node.disabled = isBusy;
@@ -162,12 +162,15 @@
   }
 
   function toggleSection(bodyId, buttonId) {
+    setSectionOpen(bodyId, buttonId, $(bodyId).classList.contains("hidden"));
+  }
+
+  function setSectionOpen(bodyId, buttonId, isOpen) {
     var body = $(bodyId);
     var button = $(buttonId);
-    var willShow = body.classList.contains("hidden");
-    body.classList.toggle("hidden", !willShow);
-    button.classList.toggle("is-open", willShow);
-    button.setAttribute("aria-expanded", willShow ? "true" : "false");
+    body.classList.toggle("hidden", !isOpen);
+    button.classList.toggle("is-open", isOpen);
+    button.setAttribute("aria-expanded", isOpen ? "true" : "false");
   }
 
   function getGenerationPromptTemplate() {
@@ -192,7 +195,14 @@
   function loadManualBriefForCue(cue) {
     flushManualBriefSave();
     manualBriefState.storageKey = cue ? core.additionalContextStorageKey(cue) : "";
-    $("manualBrief").value = manualBriefState.storageKey ? localStorage.getItem(manualBriefState.storageKey) || "" : "";
+    var value = manualBriefState.storageKey ? localStorage.getItem(manualBriefState.storageKey) || "" : "";
+    if (!value && cue && core.legacyAdditionalContextStorageKey) {
+      value = localStorage.getItem(core.legacyAdditionalContextStorageKey(cue)) || "";
+      if (value && manualBriefState.storageKey) {
+        localStorage.setItem(manualBriefState.storageKey, value);
+      }
+    }
+    $("manualBrief").value = value;
   }
 
   function saveManualBriefForCue() {
@@ -450,10 +460,11 @@
     } else if (cue && manualBrief && (!cue.markers || cue.markers.length === 0)) {
       cue = Object.assign({}, cue, {
         markers: [{ relativeSeconds: 0, startSeconds: cue.inSeconds || 0, name: "Manual brief", comments: manualBrief, durationSeconds: 0 }],
+        additionalContext: manualBrief,
       });
     } else if (cue && manualBrief) {
       cue = Object.assign({}, cue, {
-        markers: cue.markers.concat([{ relativeSeconds: 0, startSeconds: cue.inSeconds || 0, name: "Additional context", comments: manualBrief, durationSeconds: 0 }]),
+        additionalContext: manualBrief,
       });
     }
     return cue;
@@ -543,6 +554,32 @@
     return collectAnswers();
   }
 
+  function collectAnsweredQuestions() {
+    return collectAvailableAnswers().filter(function (item) {
+      return item && item.answer;
+    });
+  }
+
+  function closeInterview() {
+    state.questions = [];
+    renderQuestions();
+  }
+
+  function formatDateForSummary() {
+    var date = new Date();
+    function pad2(value) {
+      return value < 10 ? "0" + value : String(value);
+    }
+    return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate());
+  }
+
+  function appendSummaryToAdditionalContext(summary) {
+    var current = $("manualBrief").value.trim();
+    var block = "[Grill me summary · " + formatDateForSummary() + "]\n" + summary.trim();
+    $("manualBrief").value = current ? current + "\n\n" + block : block;
+    saveManualBriefForCue();
+  }
+
   function renderGenerated(fields) {
     state.generated = fields;
     $("titleOutput").value = fields.title || "";
@@ -574,6 +611,9 @@
         updateProgress("解析问题...");
         state.questions = core.normalizeInterviewJson(getAssistantContent(response));
         renderQuestions();
+        if (state.questions.length) {
+          setSectionOpen("manualBriefBody", "toggleManualBriefButton", true);
+        }
         setStatus(state.questions.length ? "Answer the questions, then generate." : "AI returned no usable questions.", !state.questions.length);
         stopProgress("完成，可以回答问题了。");
       })
@@ -610,12 +650,63 @@
         var fields = core.normalizeDeepSeekJson(getAssistantContent(response));
         updateProgress("写入 Suno Fields...");
         renderGenerated(fields);
+        if (useAnswers) {
+          closeInterview();
+        }
         setStatus("Generated. Edit or copy fields below.");
         stopProgress("完成，已写入 Suno Fields。");
       })
       .catch(function (error) {
         setStatus(error.message, true);
         stopProgress("请求失败，已保留当前内容。");
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  }
+
+  function saveInterviewSummaryToContext() {
+    var answers = collectAnsweredQuestions();
+    if (!answers.length) {
+      setStatus("Answer at least one Grill me question before saving a summary.", true);
+      return;
+    }
+
+    var cue = state.cue;
+    if (!cue) {
+      setStatus("Open or refresh a sequence before saving interview context.", true);
+      return;
+    }
+
+    startProgress("整理采访回答...");
+    var existingContext = $("manualBrief").value.trim();
+    var messages = core.buildInterviewSummaryMessages(cue, existingContext, answers);
+    if (!messages) {
+      stopProgress("");
+      setStatus("Answer at least one Grill me question before saving a summary.", true);
+      return;
+    }
+
+    setBusy(true);
+    updateProgress("发送给 DeepSeek 总结...");
+    setStatus("Summarizing interview into Additional Context...");
+    updateProgress("等待 DeepSeek 返回总结...", true);
+    callDeepSeek(messages)
+      .then(function (response) {
+        updateProgress("追加到 Additional Context...");
+        var summary = core.normalizeInterviewSummaryJson(getAssistantContent(response));
+        if (!summary) {
+          throw new Error("DeepSeek returned an empty interview summary.");
+        }
+        appendSummaryToAdditionalContext(summary);
+        setSectionOpen("manualBriefBody", "toggleManualBriefButton", true);
+        closeInterview();
+        setStatus("Saved Grill me summary to Additional Context.");
+        stopProgress("已保存到 Additional Context。");
+      })
+      .catch(function (error) {
+        setStatus(error.message + " Existing Additional Context was not changed.", true);
+        stopProgress("总结失败，已保留当前内容。");
       })
       .finally(function () {
         setBusy(false);
@@ -755,6 +846,7 @@
     $("generateWithAnswersButton").addEventListener("click", function () {
       generateFields(true);
     });
+    $("saveInterviewSummaryButton").addEventListener("click", saveInterviewSummaryToContext);
     $("clearInterviewButton").addEventListener("click", function () {
       state.questions = [];
       renderQuestions();

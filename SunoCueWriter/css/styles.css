@@ -104,7 +104,7 @@ h3 {
 
 .actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: stretch;
 }
 
@@ -125,6 +125,23 @@ h3 {
 .collapse-title {
   justify-content: flex-start;
   gap: 8px;
+}
+
+.context-title {
+  gap: 8px;
+}
+
+.collapse-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.inline-action {
+  min-width: 82px;
+  min-height: 28px;
+  padding: 4px 10px;
 }
 
 .collapse-toggle {
@@ -261,13 +278,13 @@ button:disabled {
 
 .timeline-strip {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 9px;
-  align-items: start;
+  align-items: center;
 }
 
 .refresh-button {
-  min-width: 76px;
+  min-width: 82px;
 }
 
 .timeline-readout {
@@ -332,6 +349,12 @@ button:disabled {
 .question-list {
   display: grid;
   gap: 10px;
+}
+
+.context-interview {
+  display: grid;
+  gap: 8px;
+  padding-top: 2px;
 }
 
 .question-card {

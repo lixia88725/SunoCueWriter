@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260607-cue-instruction">
+    <link rel="stylesheet" href="./css/styles.css?v=20260607-refresh-right">
   </head>
   <body>
     <main class="panel">
@@ -14,40 +14,6 @@
           <p>Premiere markers to Suno fields</p>
         </div>
       </header>
-
-      <section class="section cue-status">
-        <div class="timeline-strip">
-          <button id="refreshButton" class="secondary refresh-button">Refresh</button>
-          <div class="timeline-readout">
-            <div id="timelineSummary" class="timeline-summary-line">No timeline loaded.</div>
-            <div id="timelineStatus" class="timeline-status">Timeline not loaded yet.</div>
-            <details id="timelineDiagnostics" class="timeline-diagnostics hidden">
-              <summary>Details</summary>
-              <div id="timelineDiagnosticsText"></div>
-            </details>
-          </div>
-        </div>
-      </section>
-
-      <section class="section collapsible-section">
-        <div class="section-title collapse-title">
-          <button id="toggleMarkerPreviewButton" class="collapse-toggle" aria-label="Toggle marker preview" aria-expanded="false" aria-controls="markerPreviewBody"></button>
-          <h2>Marker Preview · <span id="markerPreviewCount">0</span></h2>
-        </div>
-        <div id="markerPreviewBody" class="collapsed-body hidden">
-          <div id="markerPreview" class="marker-preview">No markers loaded.</div>
-        </div>
-      </section>
-
-      <section class="section collapsible-section">
-        <div class="section-title collapse-title">
-          <button id="toggleManualBriefButton" class="collapse-toggle" aria-label="Toggle additional context" aria-expanded="false" aria-controls="manualBriefBody"></button>
-          <h2>Additional Context</h2>
-        </div>
-        <div id="manualBriefBody" class="collapsed-body hidden">
-          <textarea id="manualBrief" rows="3" placeholder="Optional director/editor context for this selected cue range."></textarea>
-        </div>
-      </section>
 
       <section class="section collapsible-section ai-config">
         <div class="section-title collapse-title">
@@ -84,27 +50,63 @@
         </div>
       </section>
 
+      <section class="section cue-status">
+        <div class="timeline-strip">
+          <div class="timeline-readout">
+            <div id="timelineSummary" class="timeline-summary-line">No timeline loaded.</div>
+            <div id="timelineStatus" class="timeline-status">Timeline not loaded yet.</div>
+            <details id="timelineDiagnostics" class="timeline-diagnostics hidden">
+              <summary>Details</summary>
+              <div id="timelineDiagnosticsText"></div>
+            </details>
+          </div>
+          <button id="refreshButton" class="secondary refresh-button">Refresh</button>
+        </div>
+      </section>
+
+      <section class="section collapsible-section">
+        <div class="section-title collapse-title">
+          <button id="toggleMarkerPreviewButton" class="collapse-toggle" aria-label="Toggle marker preview" aria-expanded="false" aria-controls="markerPreviewBody"></button>
+          <h2>Marker Preview · <span id="markerPreviewCount">0</span></h2>
+        </div>
+        <div id="markerPreviewBody" class="collapsed-body hidden">
+          <div id="markerPreview" class="marker-preview">No markers loaded.</div>
+        </div>
+      </section>
+
+      <section class="section collapsible-section">
+        <div class="section-title context-title">
+          <div class="collapse-heading">
+            <button id="toggleManualBriefButton" class="collapse-toggle" aria-label="Toggle additional context" aria-expanded="false" aria-controls="manualBriefBody"></button>
+            <h2>Additional Context</h2>
+          </div>
+          <button id="interviewButton" class="secondary inline-action">Grill me</button>
+        </div>
+        <div id="manualBriefBody" class="collapsed-body hidden">
+          <textarea id="manualBrief" rows="3" placeholder="Optional director/editor context for this selected cue range."></textarea>
+          <section id="interviewSection" class="context-interview hidden">
+            <div class="section-title">
+              <h2>AI Context Interview</h2>
+              <button id="clearInterviewButton" class="text-button">Clear</button>
+            </div>
+            <div id="questionList" class="question-list"></div>
+            <button id="saveInterviewSummaryButton" class="secondary">Save to Additional Context</button>
+            <button id="generateWithAnswersButton" class="primary">Generate With Answers</button>
+          </section>
+        </div>
+      </section>
+
       <section class="actions">
         <div id="activityIndicator" class="activity hidden" aria-live="polite">
           <span class="spinner"></span>
           <span id="activityText">Working</span>
         </div>
-        <button id="interviewButton" class="secondary">Grill me</button>
         <button id="copyExternalPromptButton" class="secondary">To LLM</button>
         <button id="generateButton" class="secondary">Generate</button>
         <div id="externalPromptFallback" class="external-fallback hidden">
           <p class="helper-text">External prompt is selected here as a backup. If paste is empty, press Command+C and paste into GPT, Gemini, or another model.</p>
           <textarea id="externalPromptOutput" rows="8" aria-label="External LLM prompt"></textarea>
         </div>
-      </section>
-
-      <section id="interviewSection" class="section hidden">
-        <div class="section-title">
-          <h2>AI Context Interview</h2>
-          <button id="clearInterviewButton" class="text-button">Clear</button>
-        </div>
-        <div id="questionList" class="question-list"></div>
-        <button id="generateWithAnswersButton" class="primary">Generate With Answers</button>
       </section>
 
       <section class="section output-section">
@@ -139,8 +141,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260607-cue-instruction"></script>
-    <script src="./js/core.js?v=20260607-cue-instruction"></script>
-    <script src="./js/main.js?v=20260607-cue-instruction"></script>
+    <script src="./js/cep.js?v=20260607-refresh-right"></script>
+    <script src="./js/core.js?v=20260607-refresh-right"></script>
+    <script src="./js/main.js?v=20260607-refresh-right"></script>
   </body>
 </html>

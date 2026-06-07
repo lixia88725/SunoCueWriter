@@ -88,6 +88,11 @@
       });
   }
 
+  function normalizeInterviewSummaryJson(payload) {
+    var parsed = typeof payload === "string" ? JSON.parse(stripJsonFence(payload)) : payload || {};
+    return String(parsed.summary || "").trim();
+  }
+
   function buildDeepSeekRequest(messages, options) {
     var settings = options || {};
     return {
@@ -146,6 +151,10 @@
       );
     });
 
+    if (cue.additionalContext) {
+      lines.push("", "Additional context from editor:", cue.additionalContext);
+    }
+
     return lines.join("\n");
   }
 
@@ -161,6 +170,44 @@
         content:
           "From this Premiere marker brief, ask 2-4 concise questions in Chinese. 用中文提问。Ask about what the comments and brief do not already explain. Focus on missing direction and intent: what the audience should feel, whose inner experience the cue follows, what should be emphasized or held back, whether the music should be noticed or stay underneath, whether vocals/lyrics are desired, and any taboo moods or sounds. Do not ask the user to choose instruments, harmony, rhythm, or music-production details unless they already mentioned those. Do not answer the questions. Return JSON as {\"questions\":[{\"id\":\"snake_case\",\"question\":\"...\"}]}.\n\n" +
           cueSummary(cue),
+      },
+    ];
+  }
+
+  function answeredInterviewItems(interviewAnswers) {
+    return (interviewAnswers || []).filter(function (item) {
+      return item && String(item.answer || "").trim().length > 0;
+    });
+  }
+
+  function buildInterviewSummaryMessages(cue, existingContext, interviewAnswers) {
+    var answered = answeredInterviewItems(interviewAnswers);
+    if (!answered.length) {
+      return null;
+    }
+
+    var answers = answered
+      .map(function (item, index) {
+        return index + 1 + ". Q: " + item.question + "\nA: " + item.answer;
+      })
+      .join("\n\n");
+
+    return [
+      {
+        role: "system",
+        content:
+          "You are a film music supervisor summarizing editor interview answers into reusable cue context. Write concise context that can be reused later for Suno prompt generation. Focus on director intention, audience emotion, music requirements, vocal/lyrics direction, avoidance notes, sound-design handoffs, and local production constraints. Return strict JSON only.",
+      },
+      {
+        role: "user",
+        content:
+          "Summarize only the new information from this Grill me interview into 3-6 concise bullet points for Additional Context. Focus on director intention, audience emotion, music requirements, vocal/lyrics direction, avoidance notes, sound-design handoffs, and local production constraints. Use Existing Additional Context only to avoid repeating it. Do not summarize, rewrite, or include existing context unless an interview answer changes or clarifies it. Do not preserve raw Q&A. Write in Chinese unless a short English music term is clearer. Return JSON as {\"summary\":\"- ...\\n- ...\"}.\n\n" +
+          "Existing Additional Context:\n" +
+          (existingContext || "(empty)") +
+          "\n\nPremiere cue context:\n" +
+          cueSummary(cue) +
+          "\n\nInterview answers:\n" +
+          answers,
       },
     ];
   }
@@ -240,14 +287,43 @@
         return item && item.answer;
       })
       .map(function (item, index) {
-        return index + 1 + ". Q: " + item.question + "\n   A: " + item.answer;
+        return index + 1 + ". " + item.answer;
       });
 
     return answers.length ? answers.join("\n") : "No additional interview answers provided.";
   }
 
-  function buildExternalLlmPrompt(cue, interviewAnswers, options) {
+  function externalCueContext(cue) {
     var range = (cue.inTime || cue.inSeconds + "s") + " - " + (cue.outTime || cue.outSeconds + "s");
+    var lines = [
+      "Sequence: " + (cue.sequenceName || "Untitled sequence"),
+      "In/Out range: " + range,
+      "Duration seconds: " + roundSeconds(cue.durationSeconds || 0),
+      "",
+      "Markers:",
+    ];
+
+    (cue.markers || []).forEach(function (marker, index) {
+      lines.push(
+        [
+          index + 1 + ".",
+          "[" + roundSeconds(marker.relativeSeconds || 0) + "s]",
+          marker.name ? "Name: " + marker.name + "." : "",
+          marker.comments ? "Comments: " + marker.comments : "Comments: (empty)",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+    });
+
+    if (cue.additionalContext) {
+      lines.push("", "Additional context from editor:", cue.additionalContext);
+    }
+
+    return lines.join("\n");
+  }
+
+  function buildExternalLlmPrompt(cue, interviewAnswers, options) {
     return [
       "You are generating text for Suno's current Advanced Create UI.",
       "",
@@ -270,11 +346,7 @@
       "- Prefer clear genre, mood, instrumentation, dynamics, tempo feel, and arrangement language over vague adjectives.",
       "",
       "Premiere cue context:",
-      "Sequence: " + (cue.sequenceName || "Untitled sequence"),
-      "In/Out range: " + range,
-      "Duration seconds: " + roundSeconds(cue.durationSeconds || 0),
-      "",
-      cueSummary(cue),
+      externalCueContext(cue),
       "",
       "Additional context from editor interview:",
       formatInterviewAnswers(interviewAnswers),
@@ -317,6 +389,11 @@
   }
 
   function additionalContextStorageKey(cue) {
+    var projectKey = cue.projectPath || cue.projectName || cue.sequenceName || "Unknown project";
+    return ["sunoCueWriter.additionalContext", projectKey].join("::");
+  }
+
+  function legacyAdditionalContextStorageKey(cue) {
     var projectKey = cue.projectPath || cue.projectName || "Unknown project";
     var sequenceKey = cue.sequenceName || "Untitled sequence";
     var inKey = cue.inTime || String(roundSeconds(cue.inSeconds || 0));
@@ -328,13 +405,16 @@
     filterMarkersInRange: filterMarkersInRange,
     normalizeDeepSeekJson: normalizeDeepSeekJson,
     normalizeInterviewJson: normalizeInterviewJson,
+    normalizeInterviewSummaryJson: normalizeInterviewSummaryJson,
     buildDeepSeekRequest: buildDeepSeekRequest,
     validateCueForGeneration: validateCueForGeneration,
     buildInterviewMessages: buildInterviewMessages,
+    buildInterviewSummaryMessages: buildInterviewSummaryMessages,
     buildGenerationMessages: buildGenerationMessages,
     buildExternalLlmPrompt: buildExternalLlmPrompt,
     defaultGenerationSystemPrompt: defaultGenerationSystemPrompt,
     formatCueText: formatCueText,
     additionalContextStorageKey: additionalContextStorageKey,
+    legacyAdditionalContextStorageKey: legacyAdditionalContextStorageKey,
   };
 });

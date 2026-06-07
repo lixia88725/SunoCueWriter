@@ -13,6 +13,9 @@ const {
   validateCueForGeneration,
   formatCueText,
   additionalContextStorageKey,
+  legacyAdditionalContextStorageKey,
+  buildInterviewSummaryMessages,
+  normalizeInterviewSummaryJson,
 } = require("../SunoCueWriter/js/core");
 
 test("attaches core API to window even when CommonJS module exists", () => {
@@ -173,7 +176,7 @@ test("formats all generated fields for text export and copy-all", () => {
   assert.match(text, /AI Notes:\nUse timing/);
 });
 
-test("builds an additional context storage key scoped to project, sequence, and range", () => {
+test("builds an additional context storage key scoped to the project", () => {
   const key = additionalContextStorageKey({
     projectPath: "/Users/xiali/film/scene.prproj",
     projectName: "scene",
@@ -182,10 +185,10 @@ test("builds an additional context storage key scoped to project, sequence, and 
     outTime: "00:07:18.458",
   });
 
-  assert.equal(key, "sunoCueWriter.additionalContext::/Users/xiali/film/scene.prproj::S330_V8_0515::00:00:00.000::00:07:18.458");
+  assert.equal(key, "sunoCueWriter.additionalContext::/Users/xiali/film/scene.prproj");
 });
 
-test("falls back to project name or sequence when building additional context key", () => {
+test("falls back to project name or sequence when building the project context key", () => {
   assert.equal(
     additionalContextStorageKey({
       projectName: "Untitled Project",
@@ -193,8 +196,27 @@ test("falls back to project name or sequence when building additional context ke
       inSeconds: 10,
       outSeconds: 20,
     }),
-    "sunoCueWriter.additionalContext::Untitled Project::Seq::10::20",
+    "sunoCueWriter.additionalContext::Untitled Project",
   );
+  assert.equal(
+    additionalContextStorageKey({
+      sequenceName: "Seq",
+      inSeconds: 10,
+      outSeconds: 20,
+    }),
+    "sunoCueWriter.additionalContext::Seq",
+  );
+});
+
+test("keeps the legacy additional context range key available for migration", () => {
+  const key = legacyAdditionalContextStorageKey({
+    projectPath: "/Users/xiali/film/scene.prproj",
+    sequenceName: "S330_V8_0515",
+    inTime: "00:00:00.000",
+    outTime: "00:07:18.458",
+  });
+
+  assert.equal(key, "sunoCueWriter.additionalContext::/Users/xiali/film/scene.prproj::S330_V8_0515::00:00:00.000::00:07:18.458");
 });
 
 test("builds a DeepSeek request with JSON output and V4 Pro defaults", () => {
@@ -219,6 +241,56 @@ test("normalizes interview questions and drops unusable entries", () => {
     { id: "pov", question: "Inner emotion or external tension?", answer: "" },
     { id: "question_2", question: "Any instruments to avoid?", answer: "" },
   ]);
+});
+
+test("builds an interview summary request with cue context, existing context, and answers", () => {
+  const messages = buildInterviewSummaryMessages(
+    {
+      sequenceName: "Scene_04_Rooftop",
+      durationSeconds: 75.5,
+      markers: [
+        {
+          relativeSeconds: 17.5,
+          name: "open",
+          comments: "这里的音乐要慢慢的进，代表角色从压抑到打开",
+        },
+      ],
+    },
+    "已有设定：音乐贴近角色内心。",
+    [
+      {
+        question: "这里的人声要像歌词还是氛围？",
+        answer: "这一段不要歌词，只要空灵女声氛围。",
+      },
+    ],
+  );
+
+  assert.equal(messages.length, 2);
+  assert.match(messages[0].content, /reusable cue context/i);
+  assert.match(messages[0].content, /Return strict JSON only/i);
+  assert.match(messages[1].content, /Scene_04_Rooftop/);
+  assert.match(messages[1].content, /已有设定/);
+  assert.match(messages[1].content, /这一段不要歌词/);
+  assert.match(messages[1].content, /only to avoid repeating/i);
+  assert.match(messages[1].content, /Do not summarize, rewrite, or include existing context/i);
+  assert.match(messages[1].content, /director intention/i);
+  assert.match(messages[1].content, /music requirements/i);
+});
+
+test("does not build an interview summary request without answered questions", () => {
+  assert.equal(
+    buildInterviewSummaryMessages(
+      { sequenceName: "Scene_04_Rooftop", durationSeconds: 75.5, markers: [] },
+      "",
+      [{ question: "Question?", answer: "" }],
+    ),
+    null,
+  );
+});
+
+test("normalizes interview summary JSON into plain summary text", () => {
+  assert.equal(normalizeInterviewSummaryJson("```json\n{\"summary\":\"- Keep vocals wordless.\\n- Avoid heroic drums.\"}\n```"), "- Keep vocals wordless.\n- Avoid heroic drums.");
+  assert.equal(normalizeInterviewSummaryJson({ summary: "  - Keep it intimate.  " }), "- Keep it intimate.");
 });
 
 test("validates active sequence and marker generation preconditions", () => {
@@ -257,6 +329,32 @@ test("allows external prompt when a cue has context but no markers", () => {
   assert.match(prompt, /slow uneasy underscore/);
 });
 
+test("formats additional context without a fake timeline timestamp in external prompts", () => {
+  const prompt = buildExternalLlmPrompt(
+    {
+      sequenceName: "Scene_With_Context",
+      inSeconds: 0,
+      outSeconds: 60,
+      durationSeconds: 60,
+      additionalContext: "整段音乐需要更像第三幕高潮前的诗意告别。",
+      markers: [
+        {
+          relativeSeconds: 12,
+          name: "turn",
+          comments: "角色做出决定。",
+        },
+      ],
+    },
+    [],
+  );
+
+  assert.match(prompt, /Additional context from editor:\n整段音乐需要更像第三幕高潮前的诗意告别。/);
+  assert.equal((prompt.match(/Sequence: Scene_With_Context/g) || []).length, 1);
+  assert.equal((prompt.match(/Duration seconds: 60/g) || []).length, 1);
+  assert.doesNotMatch(prompt, /\[0s\] Name: Additional context/);
+  assert.doesNotMatch(prompt, /Additional context\. Comments:/);
+});
+
 test("builds an external LLM prompt with cue context and interview answers", () => {
   const prompt = buildExternalLlmPrompt(
     {
@@ -288,6 +386,8 @@ test("builds an external LLM prompt with cue context and interview answers", () 
   assert.match(prompt, /00:00:42:12 - 00:01:58:03/);
   assert.match(prompt, /压抑到打开/);
   assert.match(prompt, /Inner emotion, but keep it restrained/);
+  assert.match(prompt, /Additional context from editor interview:\n1\. Inner emotion, but keep it restrained\./);
+  assert.doesNotMatch(prompt, /Q: Should the cue follow inner emotion or external tension/);
   assert.match(prompt, /Return the result as plain text in this exact structure/);
   assert.match(prompt, /Lyrics:/);
   assert.match(prompt, /Styles:/);
