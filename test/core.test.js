@@ -20,6 +20,7 @@ const {
   normalizeRecentPromptFiles,
   parseDeepSeekApiJson,
   assertPromptMarkdownSize,
+  promptFileNameFromPath,
 } = require("../SunoCueWriter/js/core");
 
 test("attaches core API to window even when CommonJS module exists", () => {
@@ -168,16 +169,28 @@ test("uses an editable generation system prompt for API and external workflows",
   };
 
   const messages = buildGenerationMessages(cue, [], { generationSystemPrompt: customPrompt });
-  const externalPrompt = buildExternalLlmPrompt(cue, [], { generationSystemPrompt: customPrompt });
+  const externalPrompt = buildExternalLlmPrompt(cue, [], {
+    generationSystemPrompt: customPrompt,
+    generationPromptSource: "/Users/me/Obsidian/Suno/custom-cue.md",
+  });
 
   assert.equal(messages[0].content, customPrompt);
   assert.match(externalPrompt, /You are my custom Suno cue prompt engineer/);
+  assert.match(externalPrompt, /Engineer prompt source: custom-cue\.md/);
+  assert.doesNotMatch(externalPrompt, /\/Users\/me\/Obsidian/);
+  assert.doesNotMatch(externalPrompt, /Convert Premiere timeline markers, director comments, and optional editor answers/);
   assert.match(defaultGenerationSystemPrompt(), /Suno Advanced\/Custom Mode prompt engineer/);
   assert.match(defaultGenerationSystemPrompt(), /turn them into playable music direction/);
   assert.match(defaultGenerationSystemPrompt(), /Final Suno-facing fields must be in English/);
   assert.match(defaultGenerationSystemPrompt(), /Return strict JSON only with keys: title, prompt, style, lyricsStructure, exclude, editorNotes/);
   assert.doesNotMatch(defaultGenerationSystemPrompt(), /v5/i);
   assert.doesNotMatch(defaultGenerationSystemPrompt(), /v5\.5/i);
+});
+
+test("gets a safe prompt filename from a local path", () => {
+  assert.equal(promptFileNameFromPath("/Users/me/Obsidian/Suno/custom-cue.md"), "custom-cue.md");
+  assert.equal(promptFileNameFromPath("C:\\Users\\me\\Suno\\custom-cue.md"), "custom-cue.md");
+  assert.equal(promptFileNameFromPath(""), "");
 });
 
 test("formats all generated fields for text export and copy-all", () => {

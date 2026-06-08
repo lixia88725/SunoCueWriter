@@ -135,7 +135,7 @@
     return String(path || "")
       .split(/[\\/]/)
       .filter(Boolean)
-      .pop();
+      .pop() || "";
   }
 
   function normalizeRecentPromptFiles(list, nextFile) {
@@ -329,6 +329,12 @@
       .trim();
   }
 
+  function generationPromptSourceLine(options) {
+    var settings = options || {};
+    var name = promptFileNameFromPath(settings.generationPromptSource || "");
+    return name ? "Engineer prompt source: " + name : "";
+  }
+
   function buildGenerationMessages(cue, interviewAnswers, options) {
     var answers = (interviewAnswers || [])
       .filter(function (item) {
@@ -398,6 +404,7 @@
 
   function buildExternalLlmPrompt(cue, interviewAnswers, options) {
     var formattedInterviewAnswers = formatInterviewAnswers(interviewAnswers);
+    var sourceLine = generationPromptSourceLine(options);
     var parts = [
       "You are generating text for Suno's current Advanced Create UI.",
       "",
@@ -407,6 +414,7 @@
       "- The first four fields should be directly copyable into Suno's Lyrics, Styles, Exclude styles, and Song Title inputs.",
       "",
       "Engineer guidance:",
+      sourceLine,
       externalGenerationGuidancePrompt(options),
       "",
       "Task:",
@@ -495,6 +503,7 @@
     formatCueText: formatCueText,
     extractPromptFromMarkdown: extractPromptFromMarkdown,
     assertPromptMarkdownSize: assertPromptMarkdownSize,
+    promptFileNameFromPath: promptFileNameFromPath,
     normalizeRecentPromptFiles: normalizeRecentPromptFiles,
     additionalContextStorageKey: additionalContextStorageKey,
     legacyAdditionalContextStorageKey: legacyAdditionalContextStorageKey,

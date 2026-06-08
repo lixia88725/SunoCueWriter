@@ -276,7 +276,7 @@
     $("promptMarkdownPath").value = path;
     rememberPromptMarkdownFile(path);
     setRecentPromptListOpen(false);
-    setStatus("Loaded Engineer Prompt from Markdown.");
+    setStatus("Loaded Engineer Prompt from " + promptMarkdownName(path) + ". Generate and To LLM will use it.");
   }
 
   function readPromptMarkdownWithCep(path) {
@@ -990,9 +990,12 @@
       return "";
     }
 
-    var prompt = core.buildExternalLlmPrompt(cue, collectAvailableAnswers(), { generationSystemPrompt: getGenerationPromptTemplate() });
+    var prompt = core.buildExternalLlmPrompt(cue, collectAvailableAnswers(), {
+      generationSystemPrompt: getGenerationPromptTemplate(),
+      generationPromptSource: localStorage.getItem(PROMPT_MARKDOWN_PATH_KEY) || $("promptMarkdownPath").value,
+    });
     $("externalPromptOutput").value = prompt;
-    setStatus("External LLM prompt built. Copy it into GPT, Gemini, or another model.");
+    setStatus("External prompt built with current Engineer Prompt. Copy it into GPT, Gemini, or another model.");
     return prompt;
   }
 
