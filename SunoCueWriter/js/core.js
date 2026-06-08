@@ -72,6 +72,14 @@
     };
   }
 
+  function parseDeepSeekApiJson(text) {
+    try {
+      return JSON.parse(String(text || ""));
+    } catch (error) {
+      throw new Error("DeepSeek returned invalid JSON response.");
+    }
+  }
+
   function normalizeInterviewJson(payload) {
     var parsed = typeof payload === "string" ? JSON.parse(stripJsonFence(payload)) : payload || {};
     return (parsed.questions || [])
@@ -112,6 +120,15 @@
       })
       .join("\n")
       .trim();
+  }
+
+  function assertPromptMarkdownSize(markdownText, maxCharacters) {
+    var text = String(markdownText || "");
+    var limit = maxCharacters || 1024 * 1024;
+    if (text.length > limit) {
+      throw new Error("Markdown prompt file is too large. Choose a smaller prompt file.");
+    }
+    return text;
   }
 
   function promptFileNameFromPath(path) {
@@ -465,6 +482,7 @@
   return {
     filterMarkersInRange: filterMarkersInRange,
     normalizeDeepSeekJson: normalizeDeepSeekJson,
+    parseDeepSeekApiJson: parseDeepSeekApiJson,
     normalizeInterviewJson: normalizeInterviewJson,
     normalizeInterviewSummaryJson: normalizeInterviewSummaryJson,
     buildDeepSeekRequest: buildDeepSeekRequest,
@@ -476,6 +494,7 @@
     defaultGenerationSystemPrompt: defaultGenerationSystemPrompt,
     formatCueText: formatCueText,
     extractPromptFromMarkdown: extractPromptFromMarkdown,
+    assertPromptMarkdownSize: assertPromptMarkdownSize,
     normalizeRecentPromptFiles: normalizeRecentPromptFiles,
     additionalContextStorageKey: additionalContextStorageKey,
     legacyAdditionalContextStorageKey: legacyAdditionalContextStorageKey,

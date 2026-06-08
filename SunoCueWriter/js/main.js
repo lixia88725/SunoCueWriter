@@ -245,6 +245,13 @@
     }
   }
 
+  function clearRecentPromptMarkdownFiles() {
+    localStorage.removeItem(RECENT_PROMPT_MARKDOWN_FILES_KEY);
+    renderRecentPromptMarkdownFiles();
+    setRecentPromptListOpen(false);
+    setStatus("Recent Markdown prompts cleared.");
+  }
+
   function rememberPromptMarkdownFile(path) {
     var file = {
       path: path,
@@ -259,7 +266,7 @@
     if (!isMarkdownPath(path)) {
       throw new Error("Choose a .md or .markdown prompt file.");
     }
-    var prompt = core.extractPromptFromMarkdown(markdownText);
+    var prompt = core.extractPromptFromMarkdown(core.assertPromptMarkdownSize(markdownText));
     if (!prompt) {
       throw new Error("Markdown prompt file did not contain usable prompt text.");
     }
@@ -447,7 +454,11 @@
               reject(new Error("DeepSeek API returned HTTP " + response.statusCode + ": " + chunks));
               return;
             }
-            resolve(JSON.parse(chunks));
+            try {
+              resolve(core.parseDeepSeekApiJson(chunks));
+            } catch (error) {
+              reject(error);
+            }
           });
         },
       );
@@ -475,7 +486,7 @@
           if (!response.ok) {
             throw new Error("DeepSeek API returned HTTP " + response.status + ": " + text);
           }
-          return JSON.parse(text);
+          return core.parseDeepSeekApiJson(text);
         });
       });
   }
@@ -985,20 +996,6 @@
     return prompt;
   }
 
-  function exportExternalPrompt() {
-    var text = $("externalPromptOutput").value || buildExternalPrompt();
-    if (!text) {
-      return;
-    }
-    var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    var link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "external-suno-prompt-" + Date.now() + ".txt";
-    link.click();
-    URL.revokeObjectURL(link.href);
-    setStatus("Exported external LLM prompt.");
-  }
-
   function bindEvents() {
     $("toggleAiConfigButton").addEventListener("click", function () {
       toggleSection("aiConfigBody", "toggleAiConfigButton");
@@ -1023,6 +1020,7 @@
     $("recentPromptMarkdownButton").addEventListener("click", function () {
       setRecentPromptListOpen($("recentPromptMarkdownList").classList.contains("hidden"));
     });
+    $("clearRecentPromptMarkdownButton").addEventListener("click", clearRecentPromptMarkdownFiles);
     $("recentPromptMarkdownList").addEventListener("click", function (event) {
       var button = event.target.closest("[data-recent-prompt-index]");
       if (!button) {

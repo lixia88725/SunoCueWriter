@@ -18,6 +18,8 @@ const {
   normalizeInterviewSummaryJson,
   extractPromptFromMarkdown,
   normalizeRecentPromptFiles,
+  parseDeepSeekApiJson,
+  assertPromptMarkdownSize,
 } = require("../SunoCueWriter/js/core");
 
 test("attaches core API to window even when CommonJS module exists", () => {
@@ -78,6 +80,14 @@ test("normalizes fenced or plain DeepSeek JSON into output fields", () => {
     exclude: "vocals",
     editorNotes: "timing is approximate",
   });
+});
+
+test("parses DeepSeek API JSON with a friendly invalid-response error", () => {
+  assert.deepEqual(parseDeepSeekApiJson("{\"choices\":[]}"), { choices: [] });
+  assert.throws(
+    () => parseDeepSeekApiJson("<html>not json</html>"),
+    /DeepSeek returned invalid JSON response/,
+  );
 });
 
 test("builds an interview request that asks only high-value context questions", () => {
@@ -214,6 +224,7 @@ test("renders markdown prompt loader controls in engineer prompt config", () => 
   assert.match(html, /id="promptMarkdownPath"/);
   assert.match(html, /id="browsePromptMarkdownButton"/);
   assert.match(html, /id="recentPromptMarkdownButton"/);
+  assert.match(html, /id="clearRecentPromptMarkdownButton"/);
   assert.match(html, /id="recentPromptMarkdownList"/);
   assert.match(html, /id="promptMarkdownFileInput"/);
   assert.match(html, /accept="\.md,\.markdown,text\/markdown,text\/plain"/);
@@ -236,6 +247,14 @@ test("extracts markdown prompt from body without headings when no code block exi
   );
   assert.equal(extractPromptFromMarkdown("# Only title"), "");
   assert.equal(extractPromptFromMarkdown(""), "");
+});
+
+test("rejects oversized markdown prompt files before parsing", () => {
+  assert.equal(assertPromptMarkdownSize("short prompt"), "short prompt");
+  assert.throws(
+    () => assertPromptMarkdownSize("x".repeat(1024 * 1024 + 1)),
+    /Markdown prompt file is too large/,
+  );
 });
 
 test("normalizes recent prompt markdown files", () => {

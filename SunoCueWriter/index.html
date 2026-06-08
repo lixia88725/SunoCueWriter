@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260607-recent-muted">
+    <link rel="stylesheet" href="./css/styles.css?v=20260608-audit-hardening">
   </head>
   <body>
     <main class="panel">
@@ -28,7 +28,7 @@
               <input id="apiKey" type="password" placeholder="sk-..." autocomplete="off">
               <button id="saveKeyButton" class="icon-button" title="Save key preference" aria-label="Save key preference">Save</button>
             </div>
-            <label class="check-row">
+            <label class="check-row" title="Stores the API key in this CEP panel's local storage on this machine.">
               <input id="rememberKey" type="checkbox">
               <span>Remember on this machine</span>
             </label>
@@ -45,6 +45,7 @@
               <input id="promptMarkdownPath" type="text" placeholder="Markdown prompt path">
               <button id="browsePromptMarkdownButton" class="compact-button" type="button">Browse</button>
               <button id="recentPromptMarkdownButton" class="compact-button" type="button" aria-expanded="false" aria-controls="recentPromptMarkdownList">Recent</button>
+              <button id="clearRecentPromptMarkdownButton" class="compact-button muted-button" type="button">Clear</button>
             </div>
             <input id="promptMarkdownFileInput" class="hidden" type="file" accept=".md,.markdown,text/markdown,text/plain">
             <div id="recentPromptMarkdownList" class="recent-prompt-list hidden"></div>
@@ -168,8 +169,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260607-recent-muted"></script>
-    <script src="./js/core.js?v=20260607-recent-muted"></script>
-    <script src="./js/main.js?v=20260607-recent-muted"></script>
+    <script src="./js/cep.js?v=20260608-audit-hardening"></script>
+    <script src="./js/core.js?v=20260608-audit-hardening"></script>
+    <script src="./js/main.js?v=20260608-audit-hardening"></script>
   </body>
 </html>
