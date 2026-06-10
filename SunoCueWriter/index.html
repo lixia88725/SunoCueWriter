@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260610-context-variants">
+    <link rel="stylesheet" href="./css/styles.css?v=20260610-minimal-copy">
   </head>
   <body>
     <main class="panel">
@@ -121,10 +121,6 @@
         </div>
         <button id="copyExternalPromptButton" class="secondary">To LLM</button>
         <button id="generateButton" class="secondary">Generate</button>
-        <div id="externalPromptFallback" class="external-fallback hidden">
-          <p class="helper-text">External prompt is selected here as a backup. If paste is empty, press Command+C and paste into GPT, Gemini, or another model.</p>
-          <textarea id="externalPromptOutput" rows="8" aria-label="External LLM prompt"></textarea>
-        </div>
       </section>
 
       <section class="section collapsible-section">
@@ -189,8 +185,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260610-context-variants"></script>
-    <script src="./js/core.js?v=20260610-context-variants"></script>
-    <script src="./js/main.js?v=20260610-context-variants"></script>
+    <script src="./js/cep.js?v=20260610-minimal-copy"></script>
+    <script src="./js/core.js?v=20260610-minimal-copy"></script>
+    <script src="./js/main.js?v=20260610-minimal-copy"></script>
   </body>
 </html>

@@ -262,6 +262,21 @@ test("renders style variants as an additional context helper instead of a global
   assert.doesNotMatch(main, /\$\("styleOutput"\)\.value = variant\.style/);
 });
 
+test("keeps external LLM copy UI minimal and variant context free of dated brackets", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
+  const main = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/js/main.js"), "utf8");
+
+  assert.doesNotMatch(html, /id="externalPromptFallback"/);
+  assert.doesNotMatch(html, /id="externalPromptOutput"/);
+  assert.doesNotMatch(html, /External prompt is selected here as a backup/);
+  assert.doesNotMatch(main, /showExternalPromptForManualCopy/);
+  assert.doesNotMatch(main, /Style direction ·/);
+  assert.match(main, /Style direction:/);
+  assert.match(main, /Copied To LLM prompt to clipboard/);
+});
+
 test("extracts prompt text from markdown fenced code blocks", () => {
   assert.equal(
     extractPromptFromMarkdown("# Prompt note\n\nSome setup.\n\n```text\n  Use this prompt.\nKeep line breaks.  \n```\n\nMore notes."),

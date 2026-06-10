@@ -1058,11 +1058,10 @@
     }
     var current = $("manualBrief").value.trim();
     var lines = [
-      "[Style direction · " + formatDateForSummary() + "]",
-      "- " + (variant.name || "Style Option") + ": " + (variant.style || ""),
+      "Style direction: " + (variant.name || "Style Option") + " — " + (variant.style || ""),
     ];
     if (variant.rationale) {
-      lines.push("- Why: " + variant.rationale);
+      lines.push("Why: " + variant.rationale);
     }
     $("manualBrief").value = current ? current + "\n\n" + lines.join("\n") : lines.join("\n");
     saveManualBriefForCue();
@@ -1208,12 +1207,6 @@
       });
   }
 
-  function showExternalPromptForManualCopy() {
-    $("externalPromptFallback").classList.remove("hidden");
-    $("externalPromptOutput").focus();
-    $("externalPromptOutput").select();
-  }
-
   function buildExternalPrompt() {
     var cue = cueWithManualBrief();
     var validation = core.validateCueForGeneration(cue);
@@ -1227,7 +1220,6 @@
       generationSystemPrompt: getGenerationPromptTemplate(),
       generationPromptSource: localStorage.getItem(PROMPT_MARKDOWN_PATH_KEY) || $("promptMarkdownPath").value,
     });
-    $("externalPromptOutput").value = prompt;
     setStatus("External prompt built with current Engineer Prompt. Copy it into GPT, Gemini, or another model.");
     return prompt;
   }
@@ -1341,15 +1333,14 @@
         return;
       }
       addHistoryEntry("To LLM", { externalPrompt: text, title: "External LLM Prompt" }, cueWithManualBrief());
-      showExternalPromptForManualCopy();
       copyText(text).then(function () {
-        setStatus("Copied external LLM prompt. It is also selected below.");
-        setTimelineStatus("External prompt copied and selected below. Paste it into Gemini, GPT, or another model.");
+        setStatus("Copied To LLM prompt to clipboard.");
+        setTimelineStatus("Copied To LLM prompt. Paste it into Gemini, GPT, or another model.");
         stopProgress("已复制。");
       }).catch(function (error) {
         setStatus("Could not copy automatically: " + error.message, true);
-        setTimelineStatus("Automatic copy failed. The prompt is selected below; press Command+C to copy it manually.", true);
-        stopProgress("自动复制失败，已选中文本。");
+        setTimelineStatus("Copy failed. Please try To LLM again.", true);
+        stopProgress("复制失败。");
       });
     });
   }
