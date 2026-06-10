@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260610-history-variants">
+    <link rel="stylesheet" href="./css/styles.css?v=20260610-context-variants">
   </head>
   <body>
     <main class="panel">
@@ -88,10 +88,20 @@
             <button id="toggleManualBriefButton" class="collapse-toggle" aria-label="Toggle additional context" aria-expanded="false" aria-controls="manualBriefBody"></button>
             <h2>Additional Context</h2>
           </div>
-          <button id="interviewButton" class="secondary inline-action">Grill me</button>
+          <div class="context-actions">
+            <button id="interviewButton" class="secondary inline-action">Grill me</button>
+            <button id="styleVariantsButton" class="secondary inline-action">Variants</button>
+          </div>
         </div>
         <div id="manualBriefBody" class="collapsed-body hidden">
           <textarea id="manualBrief" rows="3" placeholder="Optional director/editor context for this selected cue range."></textarea>
+          <section id="styleVariantsSection" class="context-interview hidden">
+            <div class="section-title">
+              <h2>Style Variants</h2>
+              <button id="clearStyleVariantsButton" class="text-button">Clear</button>
+            </div>
+            <div id="styleVariantList" class="variant-list"></div>
+          </section>
           <section id="interviewSection" class="context-interview hidden">
             <div class="section-title">
               <h2>AI Context Interview</h2>
@@ -111,19 +121,10 @@
         </div>
         <button id="copyExternalPromptButton" class="secondary">To LLM</button>
         <button id="generateButton" class="secondary">Generate</button>
-        <button id="styleVariantsButton" class="secondary">Variants</button>
         <div id="externalPromptFallback" class="external-fallback hidden">
           <p class="helper-text">External prompt is selected here as a backup. If paste is empty, press Command+C and paste into GPT, Gemini, or another model.</p>
           <textarea id="externalPromptOutput" rows="8" aria-label="External LLM prompt"></textarea>
         </div>
-      </section>
-
-      <section id="styleVariantsSection" class="section hidden">
-        <div class="section-title">
-          <h2>Style Variants</h2>
-          <button id="clearStyleVariantsButton" class="text-button">Clear</button>
-        </div>
-        <div id="styleVariantList" class="variant-list"></div>
       </section>
 
       <section class="section collapsible-section">
@@ -188,8 +189,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260610-history-variants"></script>
-    <script src="./js/core.js?v=20260610-history-variants"></script>
-    <script src="./js/main.js?v=20260610-history-variants"></script>
+    <script src="./js/cep.js?v=20260610-context-variants"></script>
+    <script src="./js/core.js?v=20260610-context-variants"></script>
+    <script src="./js/main.js?v=20260610-context-variants"></script>
   </body>
 </html>

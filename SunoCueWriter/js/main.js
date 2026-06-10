@@ -923,7 +923,7 @@
           '<div class="variant-title">' +
           escapeHtml(variant.name || "Style Option " + (index + 1)) +
           "</div>" +
-          '<button type="button" data-style-variant-action="use">Use</button>' +
+          '<button type="button" data-style-variant-action="add-context">Add to Context</button>' +
           "</div>" +
           '<div class="variant-style">' +
           escapeHtml(variant.style || "") +
@@ -1036,7 +1036,10 @@
         updateProgress("解析 style variants...");
         state.styleVariants = core.normalizeStyleVariantsJson(getAssistantContent(response));
         renderStyleVariants();
-        setStatus(state.styleVariants.length ? "Choose a style variant or keep your current Styles." : "AI returned no usable style variants.", !state.styleVariants.length);
+        if (state.styleVariants.length) {
+          setSectionOpen("manualBriefBody", "toggleManualBriefButton", true);
+        }
+        setStatus(state.styleVariants.length ? "Choose a style direction to add into Additional Context." : "AI returned no usable style variants.", !state.styleVariants.length);
         stopProgress("完成，已生成 Style Variants。");
       })
       .catch(function (error) {
@@ -1048,18 +1051,23 @@
       });
   }
 
-  function useStyleVariant(index) {
+  function appendStyleVariantToAdditionalContext(index) {
     var variant = state.styleVariants[index];
     if (!variant) {
       return;
     }
-    $("styleOutput").value = variant.style || "";
-    var notes = $("notesOutput").value.trim();
+    var current = $("manualBrief").value.trim();
+    var lines = [
+      "[Style direction · " + formatDateForSummary() + "]",
+      "- " + (variant.name || "Style Option") + ": " + (variant.style || ""),
+    ];
     if (variant.rationale) {
-      $("notesOutput").value = notes ? notes + "\n\nStyle Variant: " + variant.rationale : "Style Variant: " + variant.rationale;
+      lines.push("- Why: " + variant.rationale);
     }
-    addHistoryEntry("Style Variant", currentSunoFields(), cueWithManualBrief());
-    setStatus("Applied style variant and saved it to History.");
+    $("manualBrief").value = current ? current + "\n\n" + lines.join("\n") : lines.join("\n");
+    saveManualBriefForCue();
+    setSectionOpen("manualBriefBody", "toggleManualBriefButton", true);
+    setStatus("Added style direction to Additional Context. Use To LLM or Generate when ready.");
   }
 
   function saveInterviewSummaryToContext() {
@@ -1306,7 +1314,7 @@
         return;
       }
       var card = event.target.closest("[data-style-variant-index]");
-      useStyleVariant(Number(card.getAttribute("data-style-variant-index")));
+      appendStyleVariantToAdditionalContext(Number(card.getAttribute("data-style-variant-index")));
     });
     $("historyList").addEventListener("click", function (event) {
       var button = event.target.closest("[data-history-action]");

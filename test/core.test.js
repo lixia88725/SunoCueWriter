@@ -248,6 +248,20 @@ test("renders markdown prompt loader controls in engineer prompt config", () => 
   assert.match(html, /accept="\.md,\.markdown,text\/markdown,text\/plain"/);
 });
 
+test("renders style variants as an additional context helper instead of a global output action", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
+  const main = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/js/main.js"), "utf8");
+
+  assert.match(html, /<button id="interviewButton" class="secondary inline-action">Grill me<\/button>\s*<button id="styleVariantsButton" class="secondary inline-action">Variants<\/button>/);
+  assert.doesNotMatch(html, /<section class="actions">[\s\S]*id="styleVariantsButton"/);
+  assert.match(main, /data-style-variant-action="add-context">Add to Context/);
+  assert.match(main, /appendStyleVariantToAdditionalContext/);
+  assert.doesNotMatch(main, /addHistoryEntry\("Style Variant"/);
+  assert.doesNotMatch(main, /\$\("styleOutput"\)\.value = variant\.style/);
+});
+
 test("extracts prompt text from markdown fenced code blocks", () => {
   assert.equal(
     extractPromptFromMarkdown("# Prompt note\n\nSome setup.\n\n```text\n  Use this prompt.\nKeep line breaks.  \n```\n\nMore notes."),
