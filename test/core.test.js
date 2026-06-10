@@ -21,6 +21,11 @@ const {
   parseDeepSeekApiJson,
   assertPromptMarkdownSize,
   promptFileNameFromPath,
+  historyStorageKey,
+  createHistoryEntry,
+  normalizeHistoryEntries,
+  buildStyleVariantMessages,
+  normalizeStyleVariantsJson,
 } = require("../SunoCueWriter/js/core");
 
 test("attaches core API to window even when CommonJS module exists", () => {
@@ -339,6 +344,122 @@ test("builds a DeepSeek request with JSON output and V4 Pro defaults", () => {
   assert.equal(request.stream, false);
   assert.equal(request.response_format.type, "json_object");
   assert.deepEqual(request.messages, [{ role: "user", content: "Hello" }]);
+});
+
+test("builds a project-scoped history storage key", () => {
+  assert.equal(
+    historyStorageKey({
+      projectPath: "/Users/xiali/film/scene.prproj",
+      projectName: "scene",
+      sequenceName: "S330_V8_0515",
+    }),
+    "sunoCueWriter.history::/Users/xiali/film/scene.prproj",
+  );
+  assert.equal(historyStorageKey({ sequenceName: "Fallback Sequence" }), "sunoCueWriter.history::Fallback Sequence");
+});
+
+test("creates compact cue history entries with cue snapshot and prompt source filename", () => {
+  const entry = createHistoryEntry(
+    {
+      sequenceName: "S330_V8_0515",
+      inTime: "00:00:38.333",
+      outTime: "00:07:18.458",
+      durationSeconds: 400.125,
+      markers: [
+        { relativeSeconds: 8, name: "shock", comments: "低沉恐惧" },
+        { relativeSeconds: 143, name: "vocal", comments: "中文歌词进入" },
+      ],
+      additionalContext: "第三幕高潮，诗意但强烈。",
+    },
+    {
+      lyrics: "Lyrics field",
+      style: "cinematic, strings",
+      exclude: "trap",
+      title: "Guardian",
+      editorNotes: "Timing approximate.",
+    },
+    {
+      method: "Generate",
+      promptSource: "/Users/xiali/Obsidian/Suno/Emotion more than terminology.md",
+      createdAt: "2026-06-10T10:00:00.000Z",
+    },
+  );
+
+  assert.equal(entry.method, "Generate");
+  assert.equal(entry.sequenceName, "S330_V8_0515");
+  assert.equal(entry.range, "00:00:38.333 - 00:07:18.458");
+  assert.equal(entry.markerCount, 2);
+  assert.equal(entry.promptSourceName, "Emotion more than terminology.md");
+  assert.equal(entry.additionalContext, "第三幕高潮，诗意但强烈。");
+  assert.deepEqual(entry.fields, {
+    lyrics: "Lyrics field",
+    style: "cinematic, strings",
+    exclude: "trap",
+    title: "Guardian",
+    editorNotes: "Timing approximate.",
+  });
+  assert.deepEqual(
+    entry.markers.map((marker) => marker.comments),
+    ["低沉恐惧", "中文歌词进入"],
+  );
+});
+
+test("normalizes cue history entries with newest first and a hard limit", () => {
+  const oldEntries = Array.from({ length: 20 }, (_, index) => ({
+    id: "old-" + index,
+    createdAt: "2026-06-10T09:" + String(index).padStart(2, "0") + ":00.000Z",
+    method: "Generate",
+  }));
+  const next = { id: "new", createdAt: "2026-06-10T10:00:00.000Z", method: "To LLM" };
+  const normalized = normalizeHistoryEntries(oldEntries, next, 12);
+
+  assert.equal(normalized.length, 12);
+  assert.equal(normalized[0].id, "new");
+  assert.equal(normalized.filter((entry) => entry.id === "old-0").length, 0);
+});
+
+test("builds style variant messages from current cue and fields", () => {
+  const messages = buildStyleVariantMessages(
+    {
+      sequenceName: "S330_V8_0515",
+      durationSeconds: 400.125,
+      additionalContext: "更像第三幕高潮。",
+      markers: [{ relativeSeconds: 143, name: "vocal", comments: "人声进入" }],
+    },
+    {
+      lyrics: "[Opening] low strings",
+      style: "cinematic, strings",
+      exclude: "trap",
+      title: "Guardian",
+    },
+    { generationSystemPrompt: "Custom engineer prompt." },
+  );
+
+  assert.equal(messages.length, 2);
+  assert.match(messages[0].content, /style palette consultant/i);
+  assert.match(messages[1].content, /Generate exactly 3/);
+  assert.match(messages[1].content, /Custom engineer prompt/);
+  assert.match(messages[1].content, /S330_V8_0515/);
+  assert.match(messages[1].content, /人声进入/);
+  assert.match(messages[1].content, /Current Suno fields/);
+});
+
+test("normalizes style variant JSON into three usable options", () => {
+  const variants = normalizeStyleVariantsJson({
+    variants: [
+      { name: "Safe Cinematic", style: "cinematic orchestral, emotional strings", rationale: "safe" },
+      { name: "Dark Texture", style: "dark ambient, low strings", rationale: "darker" },
+      { name: "", style: "" },
+      { name: "Vocal Song", style: "cinematic ballad, female vocal", rationale: "song" },
+      { name: "Extra", style: "too much" },
+    ],
+  });
+
+  assert.deepEqual(variants, [
+    { id: "style_variant_1", name: "Safe Cinematic", style: "cinematic orchestral, emotional strings", rationale: "safe" },
+    { id: "style_variant_2", name: "Dark Texture", style: "dark ambient, low strings", rationale: "darker" },
+    { id: "style_variant_3", name: "Vocal Song", style: "cinematic ballad, female vocal", rationale: "song" },
+  ]);
 });
 
 test("normalizes interview questions and drops unusable entries", () => {

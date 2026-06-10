@@ -104,7 +104,7 @@ h3 {
 
 .actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
 }
 
@@ -391,6 +391,60 @@ button:disabled {
 .marker-item strong {
   color: var(--text);
   font-weight: 500;
+}
+
+.history-list,
+.variant-list {
+  display: grid;
+  gap: 7px;
+}
+
+.history-item,
+.variant-item {
+  display: grid;
+  gap: 7px;
+  padding: 9px;
+  border-radius: 10px;
+  background: var(--field);
+}
+
+.history-head,
+.variant-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.history-title,
+.variant-title {
+  min-width: 0;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.history-meta,
+.variant-rationale {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.history-actions,
+.variant-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.history-actions button,
+.variant-actions button {
+  flex: 1;
+  min-height: 27px;
+  padding: 4px 8px;
+}
+
+.variant-style {
+  color: var(--text);
+  line-height: 1.35;
 }
 
 .question-list {

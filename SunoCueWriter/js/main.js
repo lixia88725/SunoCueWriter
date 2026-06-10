@@ -7,6 +7,8 @@
     cue: null,
     questions: [],
     generated: {},
+    history: [],
+    styleVariants: [],
     model: "deepseek-v4-pro",
   };
   var progressState = {
@@ -22,6 +24,7 @@
   };
   var PROMPT_MARKDOWN_PATH_KEY = "promptMarkdownPath";
   var RECENT_PROMPT_MARKDOWN_FILES_KEY = "recentPromptMarkdownFiles";
+  var HISTORY_LIMIT = 20;
 
   var $ = function (id) {
     return document.getElementById(id);
@@ -132,7 +135,7 @@
   }
 
   function setBusy(isBusy) {
-    ["generateButton", "interviewButton", "generateWithAnswersButton", "saveInterviewSummaryButton", "refreshButton"].forEach(function (id) {
+    ["generateButton", "styleVariantsButton", "interviewButton", "generateWithAnswersButton", "saveInterviewSummaryButton", "refreshButton"].forEach(function (id) {
       var node = $(id);
       if (node) {
         node.disabled = isBusy;
@@ -177,6 +180,10 @@
 
   function getGenerationPromptTemplate() {
     return $("generationPromptTemplate").value.trim() || core.defaultGenerationSystemPrompt();
+  }
+
+  function getPromptSourcePath() {
+    return localStorage.getItem(PROMPT_MARKDOWN_PATH_KEY) || $("promptMarkdownPath").value || "";
   }
 
   function loadPromptTemplatePreference() {
@@ -406,6 +413,148 @@
     saveManualBriefForCue();
   }
 
+  function historyKeyForCue(cue) {
+    return cue ? core.historyStorageKey(cue) : "";
+  }
+
+  function loadHistoryForCue(cue) {
+    var key = historyKeyForCue(cue);
+    if (!key) {
+      state.history = [];
+      renderHistory();
+      return;
+    }
+    try {
+      state.history = JSON.parse(localStorage.getItem(key) || "[]");
+    } catch (error) {
+      state.history = [];
+    }
+    renderHistory();
+  }
+
+  function saveHistoryForCue(cue) {
+    var key = historyKeyForCue(cue);
+    if (key) {
+      localStorage.setItem(key, JSON.stringify(state.history || []));
+    }
+  }
+
+  function currentSunoFields() {
+    return {
+      lyrics: $("lyricsOutput").value || "",
+      style: $("styleOutput").value || "",
+      exclude: $("excludeOutput").value || "",
+      title: $("titleOutput").value || "",
+      editorNotes: $("notesOutput").value || "",
+    };
+  }
+
+  function addHistoryEntry(method, fields, cue) {
+    var sourceCue = cue || cueWithManualBrief();
+    if (!sourceCue) {
+      return;
+    }
+    var entry = core.createHistoryEntry(sourceCue, fields, {
+      method: method,
+      promptSource: getPromptSourcePath(),
+    });
+    state.history = core.normalizeHistoryEntries(state.history, entry, HISTORY_LIMIT);
+    saveHistoryForCue(sourceCue);
+    renderHistory();
+  }
+
+  function historyLabel(entry) {
+    var date = entry.createdAt ? new Date(entry.createdAt) : new Date();
+    var time = isNaN(date.getTime())
+      ? ""
+      : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return [time, entry.method || "Generate", entry.promptSourceName || "Default Prompt"].filter(Boolean).join(" · ");
+  }
+
+  function renderHistory() {
+    $("historyCount").textContent = String((state.history || []).length);
+    if (!state.history || !state.history.length) {
+      $("historyList").innerHTML = "No history yet.";
+      return;
+    }
+
+    $("historyList").innerHTML = state.history
+      .map(function (entry, index) {
+        var fieldPreview = entry.fields && entry.fields.style ? entry.fields.style : entry.fields && entry.fields.title ? entry.fields.title : "Saved cue context";
+        return (
+          '<div class="history-item" data-history-index="' +
+          index +
+          '">' +
+          '<div class="history-head">' +
+          '<div class="history-title">' +
+          escapeHtml(historyLabel(entry)) +
+          "</div>" +
+          '<div class="history-meta">' +
+          escapeHtml(entry.markerCount + " markers") +
+          "</div>" +
+          "</div>" +
+          '<div class="history-meta">' +
+          escapeHtml((entry.sequenceName || "Untitled sequence") + " · " + (entry.range || "") + " · " + fieldPreview) +
+          "</div>" +
+          '<div class="history-actions">' +
+          '<button type="button" data-history-action="load">Load</button>' +
+          '<button type="button" data-history-action="copy">Copy</button>' +
+          '<button type="button" data-history-action="delete">Delete</button>' +
+          "</div>" +
+          "</div>"
+        );
+      })
+      .join("");
+  }
+
+  function loadHistoryEntry(entry) {
+    var fields = (entry && entry.fields) || {};
+    $("titleOutput").value = fields.title || "";
+    $("styleOutput").value = fields.style || "";
+    $("lyricsOutput").value = fields.lyrics || "";
+    $("excludeOutput").value = fields.exclude || "";
+    $("notesOutput").value = fields.editorNotes || "";
+    state.generated = {
+      title: fields.title || "",
+      prompt: fields.lyrics || "",
+      lyricsStructure: "",
+      style: fields.style || "",
+      exclude: fields.exclude || "",
+      editorNotes: fields.editorNotes || "",
+    };
+    setStatus("Loaded history entry.");
+  }
+
+  function copyHistoryEntry(entry) {
+    var fields = (entry && entry.fields) || {};
+    var text = fields.externalPrompt || core.formatCueText({
+      title: fields.title || "",
+      prompt: fields.lyrics || "",
+      lyricsStructure: "",
+      style: fields.style || "",
+      exclude: fields.exclude || "",
+      editorNotes: fields.editorNotes || "",
+    });
+    if (!text.trim()) {
+      setStatus("History entry is empty.", true);
+      return;
+    }
+    copyText(text)
+      .then(function () {
+        setStatus("Copied history entry.");
+      })
+      .catch(function (error) {
+        setStatus("Could not copy history entry: " + error.message, true);
+      });
+  }
+
+  function deleteHistoryEntry(index) {
+    state.history.splice(index, 1);
+    saveHistoryForCue(state.cue);
+    renderHistory();
+    setStatus("Deleted history entry.");
+  }
+
   function cepRequire(name) {
     if (window.cep_node && window.cep_node.require) {
       return window.cep_node.require(name);
@@ -604,6 +753,7 @@
       .then(function (cue) {
         state.cue = cue;
         loadManualBriefForCue(cue);
+        loadHistoryForCue(cue);
         renderCue();
         setTimelineStatus("Timeline loaded.");
         setTimelineDiagnostics(cue.diagnostics || "", false);
@@ -761,6 +911,30 @@
     $("notesOutput").value = fields.editorNotes || "";
   }
 
+  function renderStyleVariants() {
+    $("styleVariantsSection").classList.toggle("hidden", !state.styleVariants.length);
+    $("styleVariantList").innerHTML = state.styleVariants
+      .map(function (variant, index) {
+        return (
+          '<div class="variant-item" data-style-variant-index="' +
+          index +
+          '">' +
+          '<div class="variant-head">' +
+          '<div class="variant-title">' +
+          escapeHtml(variant.name || "Style Option " + (index + 1)) +
+          "</div>" +
+          '<button type="button" data-style-variant-action="use">Use</button>' +
+          "</div>" +
+          '<div class="variant-style">' +
+          escapeHtml(variant.style || "") +
+          "</div>" +
+          (variant.rationale ? '<div class="variant-rationale">' + escapeHtml(variant.rationale) + "</div>" : "") +
+          "</div>"
+        );
+      })
+      .join("");
+  }
+
   function askInterview() {
     startProgress("准备时间线和导演批注...");
     var cue = cueWithManualBrief();
@@ -822,6 +996,7 @@
         var fields = core.normalizeDeepSeekJson(getAssistantContent(response));
         updateProgress("写入 Suno Fields...");
         renderGenerated(fields);
+        addHistoryEntry(useAnswers ? "Generate With Answers" : "Generate", currentSunoFields(), cue);
         if (useAnswers) {
           closeInterview();
         }
@@ -835,6 +1010,56 @@
       .finally(function () {
         setBusy(false);
       });
+  }
+
+  function generateStyleVariants() {
+    startProgress("准备 marker 和当前 Suno fields...");
+    var cue = cueWithManualBrief();
+    var validation = core.validateCueForGeneration(cue);
+    if (!validation.ok) {
+      stopProgress("");
+      setStatus(validation.message, true);
+      setTimelineStatus(validation.message, true);
+      return;
+    }
+
+    updateProgress("套用 Engineer Prompt...");
+    var messages = core.buildStyleVariantMessages(cue, currentSunoFields(), {
+      generationSystemPrompt: getGenerationPromptTemplate(),
+    });
+    setBusy(true);
+    updateProgress("发送给 DeepSeek...");
+    setStatus("Generating style variants...");
+    updateProgress("等待 DeepSeek 生成 style variants...", true);
+    callDeepSeek(messages)
+      .then(function (response) {
+        updateProgress("解析 style variants...");
+        state.styleVariants = core.normalizeStyleVariantsJson(getAssistantContent(response));
+        renderStyleVariants();
+        setStatus(state.styleVariants.length ? "Choose a style variant or keep your current Styles." : "AI returned no usable style variants.", !state.styleVariants.length);
+        stopProgress("完成，已生成 Style Variants。");
+      })
+      .catch(function (error) {
+        setStatus(error.message, true);
+        stopProgress("请求失败，已保留当前内容。");
+      })
+      .finally(function () {
+        setBusy(false);
+      });
+  }
+
+  function useStyleVariant(index) {
+    var variant = state.styleVariants[index];
+    if (!variant) {
+      return;
+    }
+    $("styleOutput").value = variant.style || "";
+    var notes = $("notesOutput").value.trim();
+    if (variant.rationale) {
+      $("notesOutput").value = notes ? notes + "\n\nStyle Variant: " + variant.rationale : "Style Variant: " + variant.rationale;
+    }
+    addHistoryEntry("Style Variant", currentSunoFields(), cueWithManualBrief());
+    setStatus("Applied style variant and saved it to History.");
   }
 
   function saveInterviewSummaryToContext() {
@@ -1012,6 +1237,9 @@
     $("toggleFieldDetailsButton").addEventListener("click", function () {
       toggleSection("fieldDetailsBody", "toggleFieldDetailsButton");
     });
+    $("toggleHistoryButton").addEventListener("click", function () {
+      toggleSection("historyBody", "toggleHistoryButton");
+    });
     $("saveKeyButton").addEventListener("click", saveApiKeyPreference);
     $("savePromptTemplateButton").addEventListener("click", savePromptTemplatePreference);
     $("resetPromptTemplateButton").addEventListener("click", resetPromptTemplatePreference);
@@ -1052,6 +1280,7 @@
     $("generateButton").addEventListener("click", function () {
       generateFields(false);
     });
+    $("styleVariantsButton").addEventListener("click", generateStyleVariants);
     $("generateWithAnswersButton").addEventListener("click", function () {
       generateFields(true);
     });
@@ -1066,6 +1295,36 @@
         copyOutputField(button);
       });
     });
+    $("clearStyleVariantsButton").addEventListener("click", function () {
+      state.styleVariants = [];
+      renderStyleVariants();
+      setStatus("Style variants cleared.");
+    });
+    $("styleVariantList").addEventListener("click", function (event) {
+      var button = event.target.closest("[data-style-variant-action]");
+      if (!button) {
+        return;
+      }
+      var card = event.target.closest("[data-style-variant-index]");
+      useStyleVariant(Number(card.getAttribute("data-style-variant-index")));
+    });
+    $("historyList").addEventListener("click", function (event) {
+      var button = event.target.closest("[data-history-action]");
+      if (!button) {
+        return;
+      }
+      var card = event.target.closest("[data-history-index]");
+      var index = Number(card.getAttribute("data-history-index"));
+      var entry = state.history[index];
+      var action = button.getAttribute("data-history-action");
+      if (action === "load") {
+        loadHistoryEntry(entry);
+      } else if (action === "copy") {
+        copyHistoryEntry(entry);
+      } else if (action === "delete") {
+        deleteHistoryEntry(index);
+      }
+    });
     $("copyExternalPromptButton").addEventListener("click", function () {
       startProgress("整理外部 LLM prompt...");
       var text = buildExternalPrompt();
@@ -1073,6 +1332,7 @@
         stopProgress("");
         return;
       }
+      addHistoryEntry("To LLM", { externalPrompt: text, title: "External LLM Prompt" }, cueWithManualBrief());
       showExternalPromptForManualCopy();
       copyText(text).then(function () {
         setStatus("Copied external LLM prompt. It is also selected below.");

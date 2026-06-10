@@ -479,12 +479,143 @@
     return ["sunoCueWriter.additionalContext", projectKey].join("::");
   }
 
+  function historyStorageKey(cue) {
+    var projectKey = (cue && (cue.projectPath || cue.projectName || cue.sequenceName)) || "Unknown project";
+    return ["sunoCueWriter.history", projectKey].join("::");
+  }
+
+  function cueRangeText(cue) {
+    if (!cue) {
+      return "";
+    }
+    return (cue.inTime || roundSeconds(cue.inSeconds || 0) + "s") + " - " + (cue.outTime || roundSeconds(cue.outSeconds || 0) + "s");
+  }
+
+  function createHistoryId(createdAt) {
+    return "history_" + String(createdAt || new Date().toISOString()).replace(/[^0-9a-z]/gi, "");
+  }
+
+  function normalizeHistoryFields(fields) {
+    var source = fields || {};
+    var normalized = {
+      lyrics: String(source.lyrics || [source.prompt, source.lyricsStructure].filter(Boolean).join("\n\n") || ""),
+      style: String(source.style || ""),
+      exclude: String(source.exclude || ""),
+      title: String(source.title || ""),
+      editorNotes: String(source.editorNotes || source.notes || ""),
+    };
+    if (source.externalPrompt) {
+      normalized.externalPrompt = String(source.externalPrompt);
+    }
+    return normalized;
+  }
+
+  function createHistoryEntry(cue, fields, options) {
+    var settings = options || {};
+    var createdAt = settings.createdAt || new Date().toISOString();
+    return {
+      id: settings.id || createHistoryId(createdAt),
+      createdAt: createdAt,
+      method: settings.method || "Generate",
+      sequenceName: (cue && cue.sequenceName) || "Untitled sequence",
+      range: cueRangeText(cue),
+      durationSeconds: roundSeconds((cue && cue.durationSeconds) || 0),
+      markerCount: ((cue && cue.markers) || []).length,
+      promptSourceName: promptFileNameFromPath(settings.promptSource || ""),
+      additionalContext: String((cue && cue.additionalContext) || ""),
+      markers: ((cue && cue.markers) || []).map(function (marker) {
+        return {
+          relativeSeconds: roundSeconds(marker.relativeSeconds || 0),
+          name: marker.name || "",
+          comments: marker.comments || "",
+        };
+      }),
+      fields: normalizeHistoryFields(fields),
+    };
+  }
+
+  function normalizeHistoryEntries(list, nextEntry, maxEntries) {
+    var limit = maxEntries || 20;
+    var items = [];
+    if (nextEntry && nextEntry.id) {
+      items.push(nextEntry);
+    }
+    (list || []).forEach(function (entry) {
+      if (entry && entry.id) {
+        items.push(entry);
+      }
+    });
+
+    var seen = {};
+    return items
+      .filter(function (entry) {
+        if (seen[entry.id]) {
+          return false;
+        }
+        seen[entry.id] = true;
+        return true;
+      })
+      .sort(function (a, b) {
+        return String(b.createdAt || "").localeCompare(String(a.createdAt || ""));
+      })
+      .slice(0, limit);
+  }
+
   function legacyAdditionalContextStorageKey(cue) {
     var projectKey = cue.projectPath || cue.projectName || "Unknown project";
     var sequenceKey = cue.sequenceName || "Untitled sequence";
     var inKey = cue.inTime || String(roundSeconds(cue.inSeconds || 0));
     var outKey = cue.outTime || String(roundSeconds(cue.outSeconds || 0));
     return ["sunoCueWriter.additionalContext", projectKey, sequenceKey, inKey, outKey].join("::");
+  }
+
+  function currentFieldsSummary(fields) {
+    var source = fields || {};
+    return [
+      "Lyrics:\n" + (source.lyrics || ""),
+      "Styles:\n" + (source.style || ""),
+      "Exclude Styles:\n" + (source.exclude || ""),
+      "Song Title:\n" + (source.title || ""),
+    ].join("\n\n");
+  }
+
+  function buildStyleVariantMessages(cue, currentFields, options) {
+    return [
+      {
+        role: "system",
+        content:
+          "You are a Suno style palette consultant for film music cues. Generate distinct, concise Suno Styles options. Keep each option focused and practical. Return strict JSON only.",
+      },
+      {
+        role: "user",
+        content:
+          "Generate exactly 3 alternative Styles options for this cue. Do not rewrite Lyrics. Do not change the story or cue map. Each option should represent a distinct usable musical direction, such as safer cinematic, darker textural, or more song-like/vocal when appropriate. Keep each style as comma-separated Suno style text with 1-3 genre/subgenre tags plus a few mood, instrumentation, production texture, vocal presence, tempo feel, or cinematic function tags. Avoid long paragraphs.\n\n" +
+          "Engineer Prompt currently in use:\n" +
+          externalGenerationGuidancePrompt(options) +
+          "\n\nPremiere cue context:\n" +
+          externalCueContext(cue) +
+          "\n\nCurrent Suno fields:\n" +
+          currentFieldsSummary(currentFields) +
+          '\n\nReturn JSON as {"variants":[{"name":"Safe Cinematic","style":"...","rationale":"short note"},{"name":"Dark Texture","style":"...","rationale":"short note"},{"name":"Song-like Vocal","style":"...","rationale":"short note"}]}.',
+      },
+    ];
+  }
+
+  function normalizeStyleVariantsJson(payload) {
+    var parsed = typeof payload === "string" ? JSON.parse(stripJsonFence(payload)) : payload || {};
+    return (parsed.variants || [])
+      .filter(function (item) {
+        return item && String(item.style || "").trim();
+      })
+      .slice(0, 3)
+      .map(function (item, index) {
+        return {
+          id: item.id || "style_variant_" + (index + 1),
+          name: String(item.name || "Style Option " + (index + 1)).trim(),
+          style: String(item.style || "").trim(),
+          rationale: String(item.rationale || item.notes || "").trim(),
+        };
+      });
   }
 
   return {
@@ -505,6 +636,11 @@
     assertPromptMarkdownSize: assertPromptMarkdownSize,
     promptFileNameFromPath: promptFileNameFromPath,
     normalizeRecentPromptFiles: normalizeRecentPromptFiles,
+    historyStorageKey: historyStorageKey,
+    createHistoryEntry: createHistoryEntry,
+    normalizeHistoryEntries: normalizeHistoryEntries,
+    buildStyleVariantMessages: buildStyleVariantMessages,
+    normalizeStyleVariantsJson: normalizeStyleVariantsJson,
     additionalContextStorageKey: additionalContextStorageKey,
     legacyAdditionalContextStorageKey: legacyAdditionalContextStorageKey,
   };

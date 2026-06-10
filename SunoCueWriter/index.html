@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260608-prompt-source">
+    <link rel="stylesheet" href="./css/styles.css?v=20260610-history-variants">
   </head>
   <body>
     <main class="panel">
@@ -111,9 +111,28 @@
         </div>
         <button id="copyExternalPromptButton" class="secondary">To LLM</button>
         <button id="generateButton" class="secondary">Generate</button>
+        <button id="styleVariantsButton" class="secondary">Variants</button>
         <div id="externalPromptFallback" class="external-fallback hidden">
           <p class="helper-text">External prompt is selected here as a backup. If paste is empty, press Command+C and paste into GPT, Gemini, or another model.</p>
           <textarea id="externalPromptOutput" rows="8" aria-label="External LLM prompt"></textarea>
+        </div>
+      </section>
+
+      <section id="styleVariantsSection" class="section hidden">
+        <div class="section-title">
+          <h2>Style Variants</h2>
+          <button id="clearStyleVariantsButton" class="text-button">Clear</button>
+        </div>
+        <div id="styleVariantList" class="variant-list"></div>
+      </section>
+
+      <section class="section collapsible-section">
+        <div class="section-title collapse-title">
+          <button id="toggleHistoryButton" class="collapse-toggle" aria-label="Toggle history" aria-expanded="false" aria-controls="historyBody"></button>
+          <h2>History · <span id="historyCount">0</span></h2>
+        </div>
+        <div id="historyBody" class="collapsed-body hidden">
+          <div id="historyList" class="history-list">No history yet.</div>
         </div>
       </section>
 
@@ -169,8 +188,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260608-prompt-source"></script>
-    <script src="./js/core.js?v=20260608-prompt-source"></script>
-    <script src="./js/main.js?v=20260608-prompt-source"></script>
+    <script src="./js/cep.js?v=20260610-history-variants"></script>
+    <script src="./js/core.js?v=20260610-history-variants"></script>
+    <script src="./js/main.js?v=20260610-history-variants"></script>
   </body>
 </html>
