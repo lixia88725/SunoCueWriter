@@ -277,6 +277,15 @@ test("keeps external LLM copy UI minimal and variant context free of dated brack
   assert.match(main, /Copied To LLM prompt to clipboard/);
 });
 
+test("renders history before additional context actions and output actions", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
+
+  assert.ok(html.indexOf("toggleHistoryButton") < html.indexOf("styleVariantsButton"));
+  assert.ok(html.indexOf("toggleHistoryButton") < html.indexOf("copyExternalPromptButton"));
+});
+
 test("extracts prompt text from markdown fenced code blocks", () => {
   assert.equal(
     extractPromptFromMarkdown("# Prompt note\n\nSome setup.\n\n```text\n  Use this prompt.\nKeep line breaks.  \n```\n\nMore notes."),

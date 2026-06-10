@@ -83,6 +83,16 @@
       </section>
 
       <section class="section collapsible-section">
+        <div class="section-title collapse-title">
+          <button id="toggleHistoryButton" class="collapse-toggle" aria-label="Toggle history" aria-expanded="false" aria-controls="historyBody"></button>
+          <h2>History · <span id="historyCount">0</span></h2>
+        </div>
+        <div id="historyBody" class="collapsed-body hidden">
+          <div id="historyList" class="history-list">No history yet.</div>
+        </div>
+      </section>
+
+      <section class="section collapsible-section">
         <div class="section-title context-title">
           <div class="collapse-heading">
             <button id="toggleManualBriefButton" class="collapse-toggle" aria-label="Toggle additional context" aria-expanded="false" aria-controls="manualBriefBody"></button>
@@ -121,16 +131,6 @@
         </div>
         <button id="copyExternalPromptButton" class="secondary">To LLM</button>
         <button id="generateButton" class="secondary">Generate</button>
-      </section>
-
-      <section class="section collapsible-section">
-        <div class="section-title collapse-title">
-          <button id="toggleHistoryButton" class="collapse-toggle" aria-label="Toggle history" aria-expanded="false" aria-controls="historyBody"></button>
-          <h2>History · <span id="historyCount">0</span></h2>
-        </div>
-        <div id="historyBody" class="collapsed-body hidden">
-          <div id="historyList" class="history-list">No history yet.</div>
-        </div>
       </section>
 
       <section class="section output-section">
