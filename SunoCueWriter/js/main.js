@@ -432,7 +432,11 @@
       return;
     }
     try {
-      state.history = JSON.parse(localStorage.getItem(key) || "[]");
+      var storedHistory = JSON.parse(localStorage.getItem(key) || "[]");
+      state.history = core.filterHistoryResultEntries(storedHistory);
+      if (state.history.length !== storedHistory.length) {
+        localStorage.setItem(key, JSON.stringify(state.history));
+      }
     } catch (error) {
       state.history = [];
     }
@@ -468,6 +472,22 @@
     state.history = core.normalizeHistoryEntries(state.history, entry, HISTORY_LIMIT);
     saveHistoryForCue(sourceCue);
     renderHistory();
+  }
+
+  function saveCurrentFieldsToHistory() {
+    var fields = currentSunoFields();
+    if (!fields.lyrics.trim() && !fields.style.trim()) {
+      setStatus("Add Lyrics or Styles before saving current fields to History.", true);
+      return;
+    }
+    var cue = cueWithManualBrief();
+    if (!cue) {
+      setStatus("Refresh timeline before saving current fields to History.", true);
+      return;
+    }
+    addHistoryEntry("Saved Result", fields, cue);
+    setSectionOpen("historyBody", "toggleHistoryButton", true);
+    setStatus("Saved current Suno fields to History.");
   }
 
   function historyLabel(entry) {
@@ -1415,6 +1435,7 @@
     $("toggleHistoryButton").addEventListener("click", function () {
       toggleSection("historyBody", "toggleHistoryButton");
     });
+    $("saveCurrentFieldsButton").addEventListener("click", saveCurrentFieldsToHistory);
     $("saveKeyButton").addEventListener("click", saveApiKeyPreference);
     $("savePromptTemplateButton").addEventListener("click", savePromptTemplatePreference);
     $("resetPromptTemplateButton").addEventListener("click", resetPromptTemplatePreference);
@@ -1525,7 +1546,6 @@
         stopProgress("");
         return;
       }
-      addHistoryEntry("To LLM", { externalPrompt: text, title: "External LLM Prompt" }, cueWithManualBrief());
       copyText(text).then(function () {
         setStatus("Copied To LLM prompt to clipboard.");
         setTimelineStatus("Copied To LLM prompt. Paste it into Gemini, GPT, or another model.");

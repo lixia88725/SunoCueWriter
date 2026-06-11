@@ -24,6 +24,7 @@ const {
   historyStorageKey,
   createHistoryEntry,
   normalizeHistoryEntries,
+  filterHistoryResultEntries,
   isHistoryEntryComparable,
   buildHistoryCompareReviewMessages,
   normalizeHistoryCompareReviewJson,
@@ -299,8 +300,11 @@ test("renders history at the bottom after AI notes", () => {
 test("renders history compare controls only for comparable generated entries", () => {
   const fs = require("node:fs");
   const path = require("node:path");
+  const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
   const main = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/js/main.js"), "utf8");
 
+  assert.match(html, /id="saveCurrentFieldsButton"/);
+  assert.match(html, /Save Current Fields/);
   assert.match(main, /core\.isHistoryEntryComparable\(entry\)/);
   assert.match(main, /data-history-action="compare"/);
   assert.match(main, /data-history-compare-action="use-a"/);
@@ -308,6 +312,8 @@ test("renders history compare controls only for comparable generated entries", (
   assert.match(main, /data-history-compare-action="review"/);
   assert.match(main, /clearHistoryCompareSelection/);
   assert.match(main, /askHistoryCompareReview/);
+  assert.match(main, /saveCurrentFieldsToHistory/);
+  assert.doesNotMatch(main, /addHistoryEntry\("To LLM"/);
 });
 
 test("extracts prompt text from markdown fenced code blocks", () => {
@@ -480,9 +486,23 @@ test("normalizes cue history entries with newest first and a hard limit", () => 
   assert.equal(normalized.filter((entry) => entry.id === "old-0").length, 0);
 });
 
+test("filters legacy external prompt history entries out of result history", () => {
+  const filtered = filterHistoryResultEntries([
+    { id: "generate", method: "Generate", fields: { lyrics: "usable" } },
+    { id: "external", method: "To LLM", fields: { externalPrompt: "prompt package", title: "External LLM Prompt" } },
+    { id: "saved", method: "Saved Result", fields: { style: "cinematic" } },
+  ]);
+
+  assert.deepEqual(
+    filtered.map((entry) => entry.id),
+    ["generate", "saved"],
+  );
+});
+
 test("detects which history entries can be compared as Suno results", () => {
   assert.equal(isHistoryEntryComparable({ method: "Generate", fields: { lyrics: "A" } }), true);
   assert.equal(isHistoryEntryComparable({ method: "Generate With Answers", fields: { style: "cinematic" } }), true);
+  assert.equal(isHistoryEntryComparable({ method: "Saved Result", fields: { lyrics: "external result" } }), true);
   assert.equal(isHistoryEntryComparable({ method: "To LLM", fields: { externalPrompt: "prompt package" } }), false);
   assert.equal(isHistoryEntryComparable({ method: "Generate", fields: { externalPrompt: "prompt package" } }), false);
 });

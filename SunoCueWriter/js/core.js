@@ -561,10 +561,16 @@
       .slice(0, limit);
   }
 
+  function filterHistoryResultEntries(list) {
+    return (list || []).filter(function (entry) {
+      return !(entry && entry.fields && entry.fields.externalPrompt);
+    });
+  }
+
   function isHistoryEntryComparable(entry) {
     var method = String((entry && entry.method) || "");
     var fields = (entry && entry.fields) || {};
-    return /^Generate/.test(method) && !fields.externalPrompt;
+    return (/^Generate/.test(method) || method === "Saved Result") && !fields.externalPrompt;
   }
 
   function historyCompareEntrySummary(label, entry) {
@@ -737,6 +743,7 @@
     historyStorageKey: historyStorageKey,
     createHistoryEntry: createHistoryEntry,
     normalizeHistoryEntries: normalizeHistoryEntries,
+    filterHistoryResultEntries: filterHistoryResultEntries,
     isHistoryEntryComparable: isHistoryEntryComparable,
     buildHistoryCompareReviewMessages: buildHistoryCompareReviewMessages,
     normalizeHistoryCompareReviewJson: normalizeHistoryCompareReviewJson,

@@ -150,6 +150,10 @@ h3 {
   padding: 4px 10px;
 }
 
+#saveCurrentFieldsButton {
+  min-width: 124px;
+}
+
 .collapse-toggle {
   display: grid;
   place-items: center;
