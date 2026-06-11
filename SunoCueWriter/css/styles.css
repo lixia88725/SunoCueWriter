@@ -150,8 +150,8 @@ h3 {
   padding: 4px 10px;
 }
 
-#saveCurrentFieldsButton {
-  min-width: 124px;
+#pasteHistoryResultButton {
+  min-width: 82px;
 }
 
 .collapse-toggle {

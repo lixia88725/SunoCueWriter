@@ -55,9 +55,19 @@
   function stripJsonFence(text) {
     return String(text || "")
       .trim()
-      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/^```[a-z0-9_-]*\s*/i, "")
       .replace(/\s*```$/i, "")
       .trim();
+  }
+
+  function emptySunoFields() {
+    return {
+      lyrics: "",
+      style: "",
+      exclude: "",
+      title: "",
+      editorNotes: "",
+    };
   }
 
   function normalizeDeepSeekJson(text) {
@@ -99,6 +109,118 @@
   function normalizeInterviewSummaryJson(payload) {
     var parsed = typeof payload === "string" ? JSON.parse(stripJsonFence(payload)) : payload || {};
     return String(parsed.summary || "").trim();
+  }
+
+  function stripOuterCodeFence(text) {
+    var trimmed = String(text || "").trim();
+    var match = trimmed.match(/^(```|~~~)[^\n]*\n([\s\S]*?)\n\1\s*$/);
+    return match ? String(match[2] || "").trim() : trimmed;
+  }
+
+  function normalizeExternalFieldLabel(label) {
+    return String(label || "")
+      .toLowerCase()
+      .replace(/\(optional\)/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function externalFieldKey(label) {
+    var normalized = normalizeExternalFieldLabel(label);
+    var map = {
+      lyric: "lyrics",
+      lyrics: "lyrics",
+      prompt: "lyrics",
+      style: "style",
+      styles: "style",
+      exclude: "exclude",
+      "exclude style": "exclude",
+      "exclude styles": "exclude",
+      "negative style": "exclude",
+      "negative styles": "exclude",
+      "negative prompt": "exclude",
+      title: "title",
+      "song title": "title",
+      notes: "editorNotes",
+      "ai notes": "editorNotes",
+      "editor notes": "editorNotes",
+    };
+    return map[normalized] || "";
+  }
+
+  function cleanExternalFieldLine(line) {
+    return String(line || "")
+      .trim()
+      .replace(/^#{1,6}\s*/, "")
+      .replace(/^\s*[-*]\s+/, "")
+      .replace(/\*\*/g, "")
+      .replace(/^`(.+)`$/, "$1")
+      .trim();
+  }
+
+  function parseExternalFieldLabel(line) {
+    var cleaned = cleanExternalFieldLine(line);
+    var colonIndex = cleaned.search(/[:：]/);
+    var label = colonIndex >= 0 ? cleaned.slice(0, colonIndex) : cleaned;
+    var key = externalFieldKey(label);
+    if (!key) {
+      return null;
+    }
+    if (colonIndex < 0 && normalizeExternalFieldLabel(label) !== normalizeExternalFieldLabel(cleaned)) {
+      return null;
+    }
+    return {
+      key: key,
+      value: colonIndex >= 0 ? cleaned.slice(colonIndex + 1).trim() : "",
+    };
+  }
+
+  function normalizeExternalJsonFields(parsed) {
+    var source = parsed || {};
+    return {
+      lyrics: String(source.lyrics || source.lyric || source.prompt || source.lyricsStructure || ""),
+      style: String(source.style || source.styles || ""),
+      exclude: String(source.exclude || source.excludeStyles || source.negativeStyles || source.negativePrompt || ""),
+      title: String(source.title || source.songTitle || ""),
+      editorNotes: String(source.editorNotes || source.aiNotes || source.notes || ""),
+    };
+  }
+
+  function parseSunoFieldsFromText(text) {
+    var source = stripOuterCodeFence(text);
+    var fields = emptySunoFields();
+    if (!source) {
+      return fields;
+    }
+
+    try {
+      return normalizeExternalJsonFields(JSON.parse(stripJsonFence(source)));
+    } catch (error) {
+      // Plain text from GPT/Gemini is the common path; fall through to label parsing.
+    }
+
+    var currentKey = "";
+    String(source || "")
+      .replace(/\r\n/g, "\n")
+      .split("\n")
+      .forEach(function (line) {
+        var label = parseExternalFieldLabel(line);
+        if (label) {
+          currentKey = label.key;
+          if (label.value) {
+            fields[currentKey] = fields[currentKey] ? fields[currentKey] + "\n" + label.value : label.value;
+          }
+          return;
+        }
+        if (currentKey) {
+          fields[currentKey] = fields[currentKey] ? fields[currentKey] + "\n" + line : line;
+        }
+      });
+
+    Object.keys(fields).forEach(function (key) {
+      fields[key] = String(fields[key] || "").trim();
+    });
+    return fields;
   }
 
   function extractPromptFromMarkdown(markdownText) {
@@ -570,7 +692,7 @@
   function isHistoryEntryComparable(entry) {
     var method = String((entry && entry.method) || "");
     var fields = (entry && entry.fields) || {};
-    return (/^Generate/.test(method) || method === "Saved Result") && !fields.externalPrompt;
+    return (/^Generate/.test(method) || method === "Saved Result" || method === "Pasted Result") && !fields.externalPrompt;
   }
 
   function historyCompareEntrySummary(label, entry) {
@@ -747,6 +869,7 @@
     isHistoryEntryComparable: isHistoryEntryComparable,
     buildHistoryCompareReviewMessages: buildHistoryCompareReviewMessages,
     normalizeHistoryCompareReviewJson: normalizeHistoryCompareReviewJson,
+    parseSunoFieldsFromText: parseSunoFieldsFromText,
     buildStyleVariantMessages: buildStyleVariantMessages,
     normalizeStyleVariantsJson: normalizeStyleVariantsJson,
     additionalContextStorageKey: additionalContextStorageKey,

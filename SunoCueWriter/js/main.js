@@ -474,22 +474,6 @@
     renderHistory();
   }
 
-  function saveCurrentFieldsToHistory() {
-    var fields = currentSunoFields();
-    if (!fields.lyrics.trim() && !fields.style.trim()) {
-      setStatus("Add Lyrics or Styles before saving current fields to History.", true);
-      return;
-    }
-    var cue = cueWithManualBrief();
-    if (!cue) {
-      setStatus("Refresh timeline before saving current fields to History.", true);
-      return;
-    }
-    addHistoryEntry("Saved Result", fields, cue);
-    setSectionOpen("historyBody", "toggleHistoryButton", true);
-    setStatus("Saved current Suno fields to History.");
-  }
-
   function historyLabel(entry) {
     var date = entry.createdAt ? new Date(entry.createdAt) : new Date();
     var time = isNaN(date.getTime())
@@ -755,6 +739,55 @@
       return window.require(name);
     }
     return null;
+  }
+
+  function readClipboardText() {
+    function nodeClipboardRead() {
+      return new Promise(function (resolve, reject) {
+        var childProcess = cepRequire("child_process");
+        var processModule = cepRequire("process");
+        var platform = (processModule && processModule.platform) || (window.process && window.process.platform);
+        var command = "";
+        var args = [];
+
+        if (!childProcess || !platform || !childProcess.execFile) {
+          reject(new Error("Node clipboard read is unavailable."));
+          return;
+        }
+
+        if (platform === "darwin") {
+          command = "/usr/bin/pbpaste";
+        } else if (platform === "win32") {
+          command = "powershell.exe";
+          args = ["-NoProfile", "-Command", "Get-Clipboard -Raw"];
+        } else {
+          command = "xclip";
+          args = ["-selection", "clipboard", "-o"];
+        }
+
+        childProcess.execFile(command, args, { encoding: "utf8" }, function (error, stdout) {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(String(stdout || ""));
+        });
+      });
+    }
+
+    if (cep.hasCep()) {
+      return nodeClipboardRead().catch(function () {
+        if (navigator.clipboard && navigator.clipboard.readText) {
+          return navigator.clipboard.readText();
+        }
+        return Promise.reject(new Error("Clipboard read permission denied."));
+      });
+    }
+
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      return navigator.clipboard.readText();
+    }
+    return Promise.reject(new Error("Clipboard read is unavailable."));
   }
 
   function postJsonWithNode(url, apiKey, body) {
@@ -1399,6 +1432,42 @@
       });
   }
 
+  function pasteClipboardResultToHistory() {
+    startProgress("读取剪贴板...");
+    readClipboardText()
+      .then(function (text) {
+        if (!String(text || "").trim()) {
+          setStatus("Clipboard is empty.", true);
+          stopProgress("");
+          return;
+        }
+
+        updateProgress("解析 Suno fields...");
+        var fields = core.parseSunoFieldsFromText(text);
+        if (!fields.lyrics.trim() && !fields.style.trim()) {
+          setStatus("Could not find Lyrics or Styles in clipboard.", true);
+          stopProgress("未识别到 Suno fields。");
+          return;
+        }
+
+        var cue = cueWithManualBrief();
+        if (!cue) {
+          setStatus("Refresh timeline before pasting a result to History.", true);
+          stopProgress("");
+          return;
+        }
+
+        addHistoryEntry("Pasted Result", fields, cue);
+        setSectionOpen("historyBody", "toggleHistoryButton", true);
+        setStatus("Pasted external Suno fields to History.");
+        stopProgress("已保存到 History。");
+      })
+      .catch(function (error) {
+        setStatus("Could not read clipboard: " + error.message, true);
+        stopProgress("读取剪贴板失败。");
+      });
+  }
+
   function buildExternalPrompt() {
     var cue = cueWithManualBrief();
     var validation = core.validateCueForGeneration(cue);
@@ -1435,7 +1504,7 @@
     $("toggleHistoryButton").addEventListener("click", function () {
       toggleSection("historyBody", "toggleHistoryButton");
     });
-    $("saveCurrentFieldsButton").addEventListener("click", saveCurrentFieldsToHistory);
+    $("pasteHistoryResultButton").addEventListener("click", pasteClipboardResultToHistory);
     $("saveKeyButton").addEventListener("click", saveApiKeyPreference);
     $("savePromptTemplateButton").addEventListener("click", savePromptTemplatePreference);
     $("resetPromptTemplateButton").addEventListener("click", resetPromptTemplatePreference);

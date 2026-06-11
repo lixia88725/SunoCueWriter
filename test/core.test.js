@@ -28,6 +28,7 @@ const {
   isHistoryEntryComparable,
   buildHistoryCompareReviewMessages,
   normalizeHistoryCompareReviewJson,
+  parseSunoFieldsFromText,
   buildStyleVariantMessages,
   normalizeStyleVariantsJson,
 } = require("../SunoCueWriter/js/core");
@@ -303,8 +304,8 @@ test("renders history compare controls only for comparable generated entries", (
   const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
   const main = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/js/main.js"), "utf8");
 
-  assert.match(html, /id="saveCurrentFieldsButton"/);
-  assert.match(html, /Save Current Fields/);
+  assert.match(html, /id="pasteHistoryResultButton"/);
+  assert.match(html, />Paste<\/button>/);
   assert.match(main, /core\.isHistoryEntryComparable\(entry\)/);
   assert.match(main, /data-history-action="compare"/);
   assert.match(main, /data-history-compare-action="use-a"/);
@@ -312,7 +313,8 @@ test("renders history compare controls only for comparable generated entries", (
   assert.match(main, /data-history-compare-action="review"/);
   assert.match(main, /clearHistoryCompareSelection/);
   assert.match(main, /askHistoryCompareReview/);
-  assert.match(main, /saveCurrentFieldsToHistory/);
+  assert.match(main, /pasteClipboardResultToHistory/);
+  assert.doesNotMatch(main, /saveCurrentFieldsToHistory/);
   assert.doesNotMatch(main, /addHistoryEntry\("To LLM"/);
 });
 
@@ -503,8 +505,86 @@ test("detects which history entries can be compared as Suno results", () => {
   assert.equal(isHistoryEntryComparable({ method: "Generate", fields: { lyrics: "A" } }), true);
   assert.equal(isHistoryEntryComparable({ method: "Generate With Answers", fields: { style: "cinematic" } }), true);
   assert.equal(isHistoryEntryComparable({ method: "Saved Result", fields: { lyrics: "external result" } }), true);
+  assert.equal(isHistoryEntryComparable({ method: "Pasted Result", fields: { style: "external result" } }), true);
   assert.equal(isHistoryEntryComparable({ method: "To LLM", fields: { externalPrompt: "prompt package" } }), false);
   assert.equal(isHistoryEntryComparable({ method: "Generate", fields: { externalPrompt: "prompt package" } }), false);
+});
+
+test("parses plain text Suno fields from an external model result", () => {
+  assert.deepEqual(
+    parseSunoFieldsFromText(`Lyrics:
+[Opening] low strings and fragile piano
+
+Styles:
+cinematic, orchestral, intimate
+
+Exclude Styles:
+upbeat pop, trap drums
+
+Song Title (Optional):
+After the Storm
+
+AI Notes:
+Keeps the farewell turn soft.`),
+    {
+      lyrics: "[Opening] low strings and fragile piano",
+      style: "cinematic, orchestral, intimate",
+      exclude: "upbeat pop, trap drums",
+      title: "After the Storm",
+      editorNotes: "Keeps the farewell turn soft.",
+    },
+  );
+});
+
+test("parses JSON or fenced Suno fields from an external model result", () => {
+  assert.deepEqual(
+    parseSunoFieldsFromText(
+      '```json\n{"title":"Guardian Light","lyrics":"[Verse] 中文歌词","styles":"epic cinematic","excludeStyles":"comedy tone","aiNotes":"Keep vocal intimate."}\n```',
+    ),
+    {
+      lyrics: "[Verse] 中文歌词",
+      style: "epic cinematic",
+      exclude: "comedy tone",
+      title: "Guardian Light",
+      editorNotes: "Keep vocal intimate.",
+    },
+  );
+});
+
+test("parses common field aliases from external model text", () => {
+  assert.deepEqual(
+    parseSunoFieldsFromText(`Prompt:
+[Instrumental] tense opening
+
+Style:
+dark ambient score
+
+Negative Styles:
+choir, EDM
+
+Title:
+Survival Shock
+
+Editor Notes:
+Timing is approximate.`),
+    {
+      lyrics: "[Instrumental] tense opening",
+      style: "dark ambient score",
+      exclude: "choir, EDM",
+      title: "Survival Shock",
+      editorNotes: "Timing is approximate.",
+    },
+  );
+});
+
+test("returns empty fields when external model text has no Lyrics or Styles", () => {
+  assert.deepEqual(parseSunoFieldsFromText("Here is a general explanation without Suno field labels."), {
+    lyrics: "",
+    style: "",
+    exclude: "",
+    title: "",
+    editorNotes: "",
+  });
 });
 
 test("builds history compare review messages with both entries and fixed criteria", () => {

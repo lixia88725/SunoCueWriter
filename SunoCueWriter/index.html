@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260611-history-results">
+    <link rel="stylesheet" href="./css/styles.css?v=20260611-history-paste">
   </head>
   <body>
     <main class="panel">
@@ -186,7 +186,7 @@
             <button id="toggleHistoryButton" class="collapse-toggle" aria-label="Toggle history" aria-expanded="false" aria-controls="historyBody"></button>
             <h2>History · <span id="historyCount">0</span></h2>
           </div>
-          <button id="saveCurrentFieldsButton" class="secondary inline-action">Save Current Fields</button>
+          <button id="pasteHistoryResultButton" class="secondary inline-action">Paste</button>
         </div>
         <div id="historyBody" class="collapsed-body hidden">
           <div id="historyList" class="history-list">No history yet.</div>
@@ -196,8 +196,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260611-history-results"></script>
-    <script src="./js/core.js?v=20260611-history-results"></script>
-    <script src="./js/main.js?v=20260611-history-results"></script>
+    <script src="./js/cep.js?v=20260611-history-paste"></script>
+    <script src="./js/core.js?v=20260611-history-paste"></script>
+    <script src="./js/main.js?v=20260611-history-paste"></script>
   </body>
 </html>
