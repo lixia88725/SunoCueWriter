@@ -1228,6 +1228,9 @@
     $("toggleAiConfigButton").addEventListener("click", function () {
       toggleSection("aiConfigBody", "toggleAiConfigButton");
     });
+    $("toggleEngineerPromptButton").addEventListener("click", function () {
+      toggleSection("engineerPromptBody", "toggleEngineerPromptButton");
+    });
     $("toggleManualBriefButton").addEventListener("click", function () {
       toggleSection("manualBriefBody", "toggleManualBriefButton");
     });

@@ -246,6 +246,12 @@ test("renders markdown prompt loader controls in engineer prompt config", () => 
   assert.match(html, /id="recentPromptMarkdownList"/);
   assert.match(html, /id="promptMarkdownFileInput"/);
   assert.match(html, /accept="\.md,\.markdown,text\/markdown,text\/plain"/);
+  assert.match(html, /id="toggleEngineerPromptButton"/);
+  assert.match(html, /id="engineerPromptBody"/);
+  assert.ok(html.indexOf("toggleAiConfigButton") < html.indexOf("toggleEngineerPromptButton"));
+  assert.ok(html.indexOf("toggleEngineerPromptButton") < html.indexOf("toggleManualBriefButton"));
+  const aiConfigSection = html.slice(html.indexOf('class="section collapsible-section ai-config"'), html.indexOf('class="section cue-status"'));
+  assert.doesNotMatch(aiConfigSection, /id="promptTemplateEditor"/);
 });
 
 test("renders style variants as an additional context helper instead of a global output action", () => {
@@ -277,12 +283,12 @@ test("keeps external LLM copy UI minimal and variant context free of dated brack
   assert.match(main, /Copied To LLM prompt to clipboard/);
 });
 
-test("renders history before additional context actions and output actions", () => {
+test("renders history after additional context and before output actions", () => {
   const fs = require("node:fs");
   const path = require("node:path");
   const html = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/index.html"), "utf8");
 
-  assert.ok(html.indexOf("toggleHistoryButton") < html.indexOf("styleVariantsButton"));
+  assert.ok(html.indexOf("toggleManualBriefButton") < html.indexOf("toggleHistoryButton"));
   assert.ok(html.indexOf("toggleHistoryButton") < html.indexOf("copyExternalPromptButton"));
 });
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: https://api.deepseek.com; connect-src https://api.deepseek.com;">
     <title>Suno Cue Writer</title>
-    <link rel="stylesheet" href="./css/styles.css?v=20260610-minimal-copy">
+    <link rel="stylesheet" href="./css/styles.css?v=20260611-engineer-layout">
   </head>
   <body>
     <main class="panel">
@@ -38,23 +38,6 @@
             </div>
           </div>
 
-          <div id="promptTemplateEditor" class="collapsed-body">
-            <h3>Engineer Prompt</h3>
-            <p class="helper-text">Guides DeepSeek and the external LLM prompt.</p>
-            <div class="prompt-file-loader">
-              <input id="promptMarkdownPath" type="text" placeholder="Markdown prompt path">
-              <button id="browsePromptMarkdownButton" class="compact-button" type="button">Browse</button>
-              <button id="recentPromptMarkdownButton" class="compact-button" type="button" aria-expanded="false" aria-controls="recentPromptMarkdownList">Recent</button>
-              <button id="clearRecentPromptMarkdownButton" class="compact-button muted-button" type="button">Clear</button>
-            </div>
-            <input id="promptMarkdownFileInput" class="hidden" type="file" accept=".md,.markdown,text/markdown,text/plain">
-            <div id="recentPromptMarkdownList" class="recent-prompt-list hidden"></div>
-            <textarea id="generationPromptTemplate" rows="7"></textarea>
-            <div class="mini-actions">
-              <button id="savePromptTemplateButton">Save</button>
-              <button id="resetPromptTemplateButton">Reset</button>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -84,11 +67,26 @@
 
       <section class="section collapsible-section">
         <div class="section-title collapse-title">
-          <button id="toggleHistoryButton" class="collapse-toggle" aria-label="Toggle history" aria-expanded="false" aria-controls="historyBody"></button>
-          <h2>History · <span id="historyCount">0</span></h2>
+          <button id="toggleEngineerPromptButton" class="collapse-toggle" aria-label="Toggle engineer prompt" aria-expanded="false" aria-controls="engineerPromptBody"></button>
+          <h2>Engineer Prompt</h2>
         </div>
-        <div id="historyBody" class="collapsed-body hidden">
-          <div id="historyList" class="history-list">No history yet.</div>
+        <div id="engineerPromptBody" class="collapsed-body hidden">
+          <div id="promptTemplateEditor" class="collapsed-body">
+            <p class="helper-text">Guides DeepSeek and the external LLM prompt.</p>
+            <div class="prompt-file-loader">
+              <input id="promptMarkdownPath" type="text" placeholder="Markdown prompt path">
+              <button id="browsePromptMarkdownButton" class="compact-button" type="button">Browse</button>
+              <button id="recentPromptMarkdownButton" class="compact-button" type="button" aria-expanded="false" aria-controls="recentPromptMarkdownList">Recent</button>
+              <button id="clearRecentPromptMarkdownButton" class="compact-button muted-button" type="button">Clear</button>
+            </div>
+            <input id="promptMarkdownFileInput" class="hidden" type="file" accept=".md,.markdown,text/markdown,text/plain">
+            <div id="recentPromptMarkdownList" class="recent-prompt-list hidden"></div>
+            <textarea id="generationPromptTemplate" rows="7"></textarea>
+            <div class="mini-actions">
+              <button id="savePromptTemplateButton">Save</button>
+              <button id="resetPromptTemplateButton">Reset</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -121,6 +119,16 @@
             <button id="saveInterviewSummaryButton" class="secondary">Save to Additional Context</button>
             <button id="generateWithAnswersButton" class="primary">Generate With Answers</button>
           </section>
+        </div>
+      </section>
+
+      <section class="section collapsible-section">
+        <div class="section-title collapse-title">
+          <button id="toggleHistoryButton" class="collapse-toggle" aria-label="Toggle history" aria-expanded="false" aria-controls="historyBody"></button>
+          <h2>History · <span id="historyCount">0</span></h2>
+        </div>
+        <div id="historyBody" class="collapsed-body hidden">
+          <div id="historyList" class="history-list">No history yet.</div>
         </div>
       </section>
 
@@ -185,8 +193,8 @@
       <p class="privacy">External Prompt is copied locally without calling an API. DeepSeek generation sends only marker metadata, comments, additional context, and your answers. No video or audio media is uploaded.</p>
     </main>
 
-    <script src="./js/cep.js?v=20260610-minimal-copy"></script>
-    <script src="./js/core.js?v=20260610-minimal-copy"></script>
-    <script src="./js/main.js?v=20260610-minimal-copy"></script>
+    <script src="./js/cep.js?v=20260611-engineer-layout"></script>
+    <script src="./js/core.js?v=20260611-engineer-layout"></script>
+    <script src="./js/main.js?v=20260611-engineer-layout"></script>
   </body>
 </html>
