@@ -561,6 +561,104 @@
       .slice(0, limit);
   }
 
+  function isHistoryEntryComparable(entry) {
+    var method = String((entry && entry.method) || "");
+    var fields = (entry && entry.fields) || {};
+    return /^Generate/.test(method) && !fields.externalPrompt;
+  }
+
+  function historyCompareEntrySummary(label, entry) {
+    var fields = (entry && entry.fields) || {};
+    var markers = ((entry && entry.markers) || [])
+      .map(function (marker, index) {
+        return (
+          index + 1 + ". +" + roundSeconds(marker.relativeSeconds || 0) + "s " +
+          (marker.name ? "Name: " + marker.name + ". " : "") +
+          "Comments: " + (marker.comments || "")
+        );
+      })
+      .join("\n");
+
+    return [
+      "Version " + label + ":",
+      "Created: " + ((entry && entry.createdAt) || ""),
+      "Method: " + ((entry && entry.method) || ""),
+      "Prompt source: " + ((entry && entry.promptSourceName) || "Default Prompt"),
+      "Sequence: " + ((entry && entry.sequenceName) || "Untitled sequence"),
+      "Range: " + ((entry && entry.range) || ""),
+      "Marker count: " + ((entry && entry.markerCount) || 0),
+      "Additional context:\n" + ((entry && entry.additionalContext) || ""),
+      "Markers:\n" + (markers || "No markers saved."),
+      "Suno fields:\n" +
+        [
+          "Lyrics:\n" + (fields.lyrics || ""),
+          "Styles:\n" + (fields.style || ""),
+          "Exclude Styles:\n" + (fields.exclude || ""),
+          "Song Title:\n" + (fields.title || ""),
+          "AI Notes:\n" + (fields.editorNotes || ""),
+        ].join("\n\n"),
+    ].join("\n\n");
+  }
+
+  function buildHistoryCompareReviewMessages(entryA, entryB) {
+    return [
+      {
+        role: "system",
+        content:
+          "你是一个固定的评审，不是创作模型。请用中文比较两个 Suno Fields 版本，判断哪一版更适合当前 Premiere marker、导演/剪辑意图和 Additional Context。不要重写完整提示词，不要输出长篇解释。Return strict JSON only.",
+      },
+      {
+        role: "user",
+        content:
+          "请比较 Version A 和 Version B。评审标准：是否保留导演/剪辑原意；是否覆盖关键 marker、情绪转折、角色心理、人声/歌词要求、音效让位、高潮和结尾；是否适合直接复制到 Suno Advanced/Custom Mode；是否过度压缩或过度技术化。\n\n" +
+          historyCompareEntrySummary("A", entryA) +
+          "\n\n---\n\n" +
+          historyCompareEntrySummary("B", entryB) +
+          '\n\nReturn JSON as {"recommendation":"A|B|Mix A+B","summary":"简短结论","issues":["问题1"],"suggestions":["建议1"]}.',
+      },
+    ];
+  }
+
+  function normalizeHistoryCompareReviewJson(payload) {
+    var text = String(payload || "").trim();
+    if (!text) {
+      return "";
+    }
+    try {
+      var parsed = typeof payload === "string" ? JSON.parse(stripJsonFence(payload)) : payload || {};
+      var lines = [];
+      if (parsed.recommendation) {
+        lines.push("推荐：" + String(parsed.recommendation).trim());
+      }
+      if (parsed.summary) {
+        lines.push(String(parsed.summary).trim());
+      }
+      if (parsed.issues && parsed.issues.length) {
+        lines.push(
+          "问题：\n" +
+            parsed.issues
+              .map(function (item) {
+                return "- " + String(item).trim();
+              })
+              .join("\n"),
+        );
+      }
+      if (parsed.suggestions && parsed.suggestions.length) {
+        lines.push(
+          "建议：\n" +
+            parsed.suggestions
+              .map(function (item) {
+                return "- " + String(item).trim();
+              })
+              .join("\n"),
+        );
+      }
+      return lines.filter(Boolean).join("\n\n").trim();
+    } catch (error) {
+      return text;
+    }
+  }
+
   function legacyAdditionalContextStorageKey(cue) {
     var projectKey = cue.projectPath || cue.projectName || "Unknown project";
     var sequenceKey = cue.sequenceName || "Untitled sequence";
@@ -639,6 +737,9 @@
     historyStorageKey: historyStorageKey,
     createHistoryEntry: createHistoryEntry,
     normalizeHistoryEntries: normalizeHistoryEntries,
+    isHistoryEntryComparable: isHistoryEntryComparable,
+    buildHistoryCompareReviewMessages: buildHistoryCompareReviewMessages,
+    normalizeHistoryCompareReviewJson: normalizeHistoryCompareReviewJson,
     buildStyleVariantMessages: buildStyleVariantMessages,
     normalizeStyleVariantsJson: normalizeStyleVariantsJson,
     additionalContextStorageKey: additionalContextStorageKey,

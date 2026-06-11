@@ -448,6 +448,59 @@ button:disabled {
   padding: 4px 8px;
 }
 
+.history-compare-result {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--panel-2);
+}
+
+.history-compare-field,
+.history-compare-review {
+  display: grid;
+  gap: 5px;
+}
+
+.history-compare-label {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.history-compare-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.history-compare-columns > div,
+.history-compare-review {
+  min-width: 0;
+}
+
+.history-compare-result pre {
+  max-height: 150px;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  border-radius: 9px;
+  background: var(--field);
+  color: var(--muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.history-compare-columns strong {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 400;
+}
+
+.history-compare-error {
+  color: var(--danger);
+}
+
 .variant-style {
   color: var(--text);
   line-height: 1.35;

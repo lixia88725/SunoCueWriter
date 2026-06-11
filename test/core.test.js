@@ -24,6 +24,9 @@ const {
   historyStorageKey,
   createHistoryEntry,
   normalizeHistoryEntries,
+  isHistoryEntryComparable,
+  buildHistoryCompareReviewMessages,
+  normalizeHistoryCompareReviewJson,
   buildStyleVariantMessages,
   normalizeStyleVariantsJson,
 } = require("../SunoCueWriter/js/core");
@@ -293,6 +296,20 @@ test("renders history at the bottom after AI notes", () => {
   assert.ok(html.indexOf("toggleHistoryButton") < html.indexOf('<p class="privacy">'));
 });
 
+test("renders history compare controls only for comparable generated entries", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const main = fs.readFileSync(path.join(__dirname, "../SunoCueWriter/js/main.js"), "utf8");
+
+  assert.match(main, /core\.isHistoryEntryComparable\(entry\)/);
+  assert.match(main, /data-history-action="compare"/);
+  assert.match(main, /data-history-compare-action="use-a"/);
+  assert.match(main, /data-history-compare-action="use-b"/);
+  assert.match(main, /data-history-compare-action="review"/);
+  assert.match(main, /clearHistoryCompareSelection/);
+  assert.match(main, /askHistoryCompareReview/);
+});
+
 test("extracts prompt text from markdown fenced code blocks", () => {
   assert.equal(
     extractPromptFromMarkdown("# Prompt note\n\nSome setup.\n\n```text\n  Use this prompt.\nKeep line breaks.  \n```\n\nMore notes."),
@@ -461,6 +478,57 @@ test("normalizes cue history entries with newest first and a hard limit", () => 
   assert.equal(normalized.length, 12);
   assert.equal(normalized[0].id, "new");
   assert.equal(normalized.filter((entry) => entry.id === "old-0").length, 0);
+});
+
+test("detects which history entries can be compared as Suno results", () => {
+  assert.equal(isHistoryEntryComparable({ method: "Generate", fields: { lyrics: "A" } }), true);
+  assert.equal(isHistoryEntryComparable({ method: "Generate With Answers", fields: { style: "cinematic" } }), true);
+  assert.equal(isHistoryEntryComparable({ method: "To LLM", fields: { externalPrompt: "prompt package" } }), false);
+  assert.equal(isHistoryEntryComparable({ method: "Generate", fields: { externalPrompt: "prompt package" } }), false);
+});
+
+test("builds history compare review messages with both entries and fixed criteria", () => {
+  const a = createHistoryEntry(
+    {
+      sequenceName: "S330_V8_0515",
+      inTime: "00:00:38.333",
+      outTime: "00:07:18.458",
+      markers: [{ relativeSeconds: 8, comments: "主角刚经历混乱，压抑低沉" }],
+      additionalContext: "第三幕高潮，中文女声。",
+    },
+    { lyrics: "[Opening] low strings", style: "dark cinematic", exclude: "pop", title: "A", editorNotes: "A notes" },
+    { method: "Generate", createdAt: "2026-06-10T10:00:00.000Z" },
+  );
+  const b = createHistoryEntry(
+    {
+      sequenceName: "S330_V8_0515",
+      inTime: "00:00:38.333",
+      outTime: "00:07:18.458",
+      markers: [{ relativeSeconds: 143, comments: "中文歌词进入，空灵女声" }],
+      additionalContext: "第三幕高潮，中文女声。",
+    },
+    { lyrics: "[Vocal entrance] ethereal voice", style: "epic vocal cinematic", exclude: "trap", title: "B" },
+    { method: "Generate With Answers", createdAt: "2026-06-10T10:02:00.000Z" },
+  );
+
+  const messages = buildHistoryCompareReviewMessages(a, b);
+
+  assert.equal(messages[0].role, "system");
+  assert.match(messages[0].content, /固定的评审/);
+  assert.match(messages[1].content, /Version A/);
+  assert.match(messages[1].content, /Version B/);
+  assert.match(messages[1].content, /主角刚经历混乱/);
+  assert.match(messages[1].content, /中文歌词进入/);
+  assert.match(messages[1].content, /Lyrics:\n\[Opening\] low strings/);
+  assert.match(messages[1].content, /Return JSON/);
+});
+
+test("normalizes history compare review JSON or plain text into readable Chinese review", () => {
+  assert.equal(
+    normalizeHistoryCompareReviewJson('{"recommendation":"B","summary":"B 更保留人声入口。","issues":["A 漏掉中文歌词"],"suggestions":["保留 B 的人声描述"]}'),
+    "推荐：B\n\nB 更保留人声入口。\n\n问题：\n- A 漏掉中文歌词\n\n建议：\n- 保留 B 的人声描述",
+  );
+  assert.equal(normalizeHistoryCompareReviewJson("B 更好，因为它保留了高潮。"), "B 更好，因为它保留了高潮。");
 });
 
 test("builds style variant messages from current cue and fields", () => {

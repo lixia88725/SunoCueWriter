@@ -8,6 +8,12 @@
     questions: [],
     generated: {},
     history: [],
+    historyCompare: {
+      aId: "",
+      bId: "",
+      review: "",
+      error: "",
+    },
     styleVariants: [],
     model: "deepseek-v4-pro",
   };
@@ -419,6 +425,7 @@
 
   function loadHistoryForCue(cue) {
     var key = historyKeyForCue(cue);
+    clearHistoryCompareSelection(false);
     if (!key) {
       state.history = [];
       renderHistory();
@@ -471,6 +478,118 @@
     return [time, entry.method || "Generate", entry.promptSourceName || "Default Prompt"].filter(Boolean).join(" · ");
   }
 
+  function historyEntryById(id) {
+    return (state.history || []).filter(function (entry) {
+      return entry && entry.id === id;
+    })[0];
+  }
+
+  function historyCompareEntries() {
+    return {
+      a: historyEntryById(state.historyCompare.aId),
+      b: historyEntryById(state.historyCompare.bId),
+    };
+  }
+
+  function compareSelectionLabel(entry) {
+    if (entry && entry.id === state.historyCompare.aId) {
+      return "A";
+    }
+    if (entry && entry.id === state.historyCompare.bId) {
+      return "B";
+    }
+    return "";
+  }
+
+  function clearHistoryCompareSelection(shouldRender) {
+    state.historyCompare = {
+      aId: "",
+      bId: "",
+      review: "",
+      error: "",
+    };
+    if (shouldRender !== false) {
+      renderHistory();
+    }
+  }
+
+  function selectHistoryCompareEntry(entry) {
+    if (!core.isHistoryEntryComparable(entry)) {
+      setStatus("Only Generate history entries can be compared.", true);
+      return;
+    }
+    if (!state.historyCompare.aId || (state.historyCompare.aId && state.historyCompare.bId)) {
+      state.historyCompare.aId = entry.id;
+      state.historyCompare.bId = "";
+      state.historyCompare.review = "";
+      state.historyCompare.error = "";
+      setStatus("Selected history version A. Choose another Generate entry for B.");
+      renderHistory();
+      return;
+    }
+    if (state.historyCompare.aId === entry.id) {
+      setStatus("Choose a different Generate history entry for B.", true);
+      return;
+    }
+    state.historyCompare.bId = entry.id;
+    state.historyCompare.review = "";
+    state.historyCompare.error = "";
+    setStatus("Selected history version B. Compare result is ready.");
+    renderHistory();
+  }
+
+  function historyFieldCompareBlock(label, fieldName, entryA, entryB) {
+    var fieldsA = (entryA && entryA.fields) || {};
+    var fieldsB = (entryB && entryB.fields) || {};
+    return (
+      '<div class="history-compare-field">' +
+      '<div class="history-compare-label">' +
+      escapeHtml(label) +
+      "</div>" +
+      '<div class="history-compare-columns">' +
+      '<div><strong>A</strong><pre>' +
+      escapeHtml(fieldsA[fieldName] || "") +
+      "</pre></div>" +
+      '<div><strong>B</strong><pre>' +
+      escapeHtml(fieldsB[fieldName] || "") +
+      "</pre></div>" +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderHistoryCompareResult() {
+    var entries = historyCompareEntries();
+    if (!entries.a || !entries.b) {
+      return "";
+    }
+    return (
+      '<div class="history-compare-result">' +
+      '<div class="history-head">' +
+      '<div class="history-title">Compare Result</div>' +
+      '<div class="history-meta">' +
+      escapeHtml("A: " + historyLabel(entries.a) + " | B: " + historyLabel(entries.b)) +
+      "</div>" +
+      "</div>" +
+      '<div class="history-actions">' +
+      '<button type="button" data-history-compare-action="use-a">Use A</button>' +
+      '<button type="button" data-history-compare-action="use-b">Use B</button>' +
+      '<button type="button" data-history-compare-action="review">Ask AI Review</button>' +
+      '<button type="button" data-history-compare-action="clear">Clear Compare</button>' +
+      "</div>" +
+      historyFieldCompareBlock("Lyrics", "lyrics", entries.a, entries.b) +
+      historyFieldCompareBlock("Styles", "style", entries.a, entries.b) +
+      historyFieldCompareBlock("Exclude Styles", "exclude", entries.a, entries.b) +
+      historyFieldCompareBlock("Song Title", "title", entries.a, entries.b) +
+      historyFieldCompareBlock("AI Notes", "editorNotes", entries.a, entries.b) +
+      (state.historyCompare.review
+        ? '<div class="history-compare-review"><div class="history-compare-label">AI Review</div><pre>' + escapeHtml(state.historyCompare.review) + "</pre></div>"
+        : "") +
+      (state.historyCompare.error ? '<div class="history-compare-error">' + escapeHtml(state.historyCompare.error) + "</div>" : "") +
+      "</div>"
+    );
+  }
+
   function renderHistory() {
     $("historyCount").textContent = String((state.history || []).length);
     if (!state.history || !state.history.length) {
@@ -478,9 +597,13 @@
       return;
     }
 
-    $("historyList").innerHTML = state.history
+    var items = state.history
       .map(function (entry, index) {
         var fieldPreview = entry.fields && entry.fields.style ? entry.fields.style : entry.fields && entry.fields.title ? entry.fields.title : "Saved cue context";
+        var selection = compareSelectionLabel(entry);
+        var compareButton = core.isHistoryEntryComparable(entry)
+          ? '<button type="button" data-history-action="compare">' + escapeHtml(selection ? "Selected " + selection : "Compare") + "</button>"
+          : "";
         return (
           '<div class="history-item" data-history-index="' +
           index +
@@ -499,12 +622,14 @@
           '<div class="history-actions">' +
           '<button type="button" data-history-action="load">Load</button>' +
           '<button type="button" data-history-action="copy">Copy</button>' +
+          compareButton +
           '<button type="button" data-history-action="delete">Delete</button>' +
           "</div>" +
           "</div>"
         );
       })
       .join("");
+    $("historyList").innerHTML = items + renderHistoryCompareResult();
   }
 
   function loadHistoryEntry(entry) {
@@ -549,10 +674,57 @@
   }
 
   function deleteHistoryEntry(index) {
+    var deleted = state.history[index];
     state.history.splice(index, 1);
+    if (deleted && (deleted.id === state.historyCompare.aId || deleted.id === state.historyCompare.bId)) {
+      clearHistoryCompareSelection(false);
+    }
     saveHistoryForCue(state.cue);
     renderHistory();
     setStatus("Deleted history entry.");
+  }
+
+  function useHistoryCompareEntry(label) {
+    var entries = historyCompareEntries();
+    var entry = label === "A" ? entries.a : entries.b;
+    if (!entry) {
+      setStatus("Choose two Generate history entries before using a compare version.", true);
+      return;
+    }
+    loadHistoryEntry(entry);
+    setStatus("Loaded history compare version " + label + ".");
+  }
+
+  function askHistoryCompareReview() {
+    var entries = historyCompareEntries();
+    if (!entries.a || !entries.b) {
+      setStatus("Choose two Generate history entries before asking for AI review.", true);
+      return;
+    }
+    startProgress("准备 History 对比...");
+    var messages = core.buildHistoryCompareReviewMessages(entries.a, entries.b);
+    setBusy(true);
+    updateProgress("发送给 DeepSeek 评审...");
+    setStatus("Asking AI to compare history versions...");
+    updateProgress("等待 DeepSeek 返回对比结论...", true);
+    callDeepSeek(messages)
+      .then(function (response) {
+        updateProgress("解析对比结论...");
+        state.historyCompare.review = core.normalizeHistoryCompareReviewJson(getAssistantContent(response));
+        state.historyCompare.error = "";
+        renderHistory();
+        setStatus("History compare review is ready.");
+        stopProgress("完成，已生成对比结论。");
+      })
+      .catch(function (error) {
+        state.historyCompare.error = error.message;
+        renderHistory();
+        setStatus(error.message, true);
+        stopProgress("评审失败，已保留对比内容。");
+      })
+      .finally(function () {
+        setBusy(false);
+      });
   }
 
   function cepRequire(name) {
@@ -1312,6 +1484,22 @@
       appendStyleVariantToAdditionalContext(Number(card.getAttribute("data-style-variant-index")));
     });
     $("historyList").addEventListener("click", function (event) {
+      var compareButton = event.target.closest("[data-history-compare-action]");
+      if (compareButton) {
+        var compareAction = compareButton.getAttribute("data-history-compare-action");
+        if (compareAction === "use-a") {
+          useHistoryCompareEntry("A");
+        } else if (compareAction === "use-b") {
+          useHistoryCompareEntry("B");
+        } else if (compareAction === "review") {
+          askHistoryCompareReview();
+        } else if (compareAction === "clear") {
+          clearHistoryCompareSelection();
+          setStatus("History compare cleared.");
+        }
+        return;
+      }
+
       var button = event.target.closest("[data-history-action]");
       if (!button) {
         return;
@@ -1324,6 +1512,8 @@
         loadHistoryEntry(entry);
       } else if (action === "copy") {
         copyHistoryEntry(entry);
+      } else if (action === "compare") {
+        selectHistoryCompareEntry(entry);
       } else if (action === "delete") {
         deleteHistoryEntry(index);
       }
